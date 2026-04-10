@@ -25,7 +25,7 @@ It is intentionally narrow:
 Remote install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/install.sh | DOWNLOAD_REPO=<owner>/<repo> bash
+curl -fsSL https://raw.githubusercontent.com/WLKRLABS/buoy/main/install.sh | DOWNLOAD_REPO=WLKRLABS/buoy bash
 ```
 
 Local install from a clone:
