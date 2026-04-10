@@ -8,7 +8,7 @@
   <strong>macOS only</strong> • <strong>CLI-first</strong> • <strong>Native app wrapper</strong>
 </p>
 
-## Why Buoy Exists
+## Why Buoy
 
 `Buoy` keeps a Mac in a server-friendly power profile without turning it into a background-heavy utility.
 
