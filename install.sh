@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR=""
+if [[ -n "${BASH_SOURCE[0]-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 APP_DIR="${APP_DIR:-$HOME/Applications}"
 DOWNLOAD_REPO="${DOWNLOAD_REPO:-}"
@@ -62,7 +65,7 @@ require_download_repo() {
   fi
 }
 
-if [[ -f "$ROOT_DIR/Sources/BuoyCore/BuoyEngine.swift" ]]; then
+if [[ -n "$ROOT_DIR" && -f "$ROOT_DIR/Sources/BuoyCore/BuoyEngine.swift" ]]; then
   SOURCE_DIR="$ROOT_DIR"
 else
   TMP_DIR="$(mktemp -d)"
