@@ -10,13 +10,26 @@ SWIFTC_BIN="${SWIFTC_BIN:-$(xcrun --find swiftc)}"
 SDK_PATH="${SDK_PATH:-$(xcrun --show-sdk-path)}"
 ICON_SOURCE="$ROOT_DIR/buoy-icon.png"
 ICON_NAME="BuoyIcon"
+APP_VERSION="$("$ROOT_DIR/scripts/version.sh" version)"
+APP_BUILD="$("$ROOT_DIR/scripts/version.sh" build-number)"
+TMP_DIR="$(mktemp -d)"
+GENERATED_VERSION_FILE="$TMP_DIR/BuoyVersion.generated.swift"
+
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 "$ROOT_DIR/scripts/build-cli.sh"
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources/bin"
 
-cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
+cat > "$GENERATED_VERSION_FILE" <<EOF
+import Foundation
+
+public let buoyVersion = "$APP_VERSION"
+public let buoyBuildNumber = "$APP_BUILD"
+EOF
+
+cat > "$APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -36,9 +49,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<'EOF'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0.0</string>
+  <string>${APP_VERSION}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${APP_BUILD}</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>NSHighResolutionCapable</key>
@@ -52,6 +65,7 @@ echo "Building Buoy.app..."
   -sdk "$SDK_PATH" \
   -parse-as-library \
   -framework AppKit \
+  "$GENERATED_VERSION_FILE" \
   "$ROOT_DIR"/Sources/BuoyCore/*.swift \
   "$ROOT_DIR"/Sources/BuoyCore/SystemMetrics/*.swift \
   "$ROOT_DIR"/Sources/BuoyApp/Dashboard/*.swift \

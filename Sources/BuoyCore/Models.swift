@@ -1,6 +1,5 @@
 import Foundation
 
-public let buoyVersion = "1.0.0"
 public let buoyProductName = "Buoy"
 public let buoyCommandName = "buoy"
 

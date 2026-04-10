@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate-and-build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate versioning
+        run: bash scripts/validate-versioning.sh
+
+      - name: Smoke checks
+        run: ./scripts/smoke-test.sh
+
+      - name: Lint shell scripts
+        run: bash -n install.sh scripts/*.sh buoy
+
+      - name: Build CLI
+        run: ./scripts/build-cli.sh
+
+      - name: Verify CLI version
+        run: test "$(./dist/buoy version)" = "$(./scripts/version.sh version)"
+
+      - name: Verify CLI health commands
+        run: |
+          ./dist/buoy doctor
+          ./dist/buoy status --json >/tmp/buoy-status.json
+          test -s /tmp/buoy-status.json
+
+      - name: Build app
+        run: ./scripts/build-app.sh
+
+      - name: Package release assets
+        run: ./scripts/package-release.sh
+
+      - name: Check packaged assets
+        run: |
+          test -f dist/release/buoy
+          test -f dist/release/Buoy.app.zip

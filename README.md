@@ -134,6 +134,13 @@ Package release assets:
 ./scripts/package-release.sh
 ```
 
+Validate versioning and render release notes:
+
+```bash
+bash scripts/validate-versioning.sh
+./scripts/render-release-notes.sh
+```
+
 ## Project Guides
 
 - [Roadmap](docs/technical-roadmap.md)
@@ -142,6 +149,9 @@ Package release assets:
 - [Writing Style](docs/writing-style.md)
 - [Launch Risks](docs/launch-risks.md)
 - [Progress Checklist](PROGRESS_CHECKLIST.md)
+- [Versioning Policy](VERSIONING.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Limits
 
