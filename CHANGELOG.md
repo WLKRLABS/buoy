@@ -6,6 +6,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 - No unreleased changes yet.
 
+## [0.2.0] - 2026-04-15
+
+### Added
+
+- Added a live sleep-behavior summary card in the Power tab so it is obvious when Buoy will keep the Mac awake, let the display sleep, or restore normal sleep.
+
+### Fixed
+
+- Fixed the Power tab status refresh path so the app can decode `buoy status --json` without falling back to `Status unavailable`.
+- Clarified the power status copy to show whether sleep is currently prevented or allowed.
+
 ## [0.1.1] - 2026-04-09
 
 ### Fixed

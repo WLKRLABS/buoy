@@ -126,6 +126,7 @@ final class BuoyViewController: NSViewController {
     private let subtitleLabel = NSTextField(labelWithString: "Keep this Mac server-ready while plugged in.")
     private let controlsPanel = NSBox()
     private let statusPanel = NSBox()
+    private let behaviorPanel = NSBox()
 
     private lazy var enabledSwitch = makeSwitch(title: "Server mode")
     private lazy var clamSwitch = makeSwitch(title: "Closed-lid awake")
@@ -142,9 +143,17 @@ final class BuoyViewController: NSViewController {
     private lazy var screenOffButton = makeButton(title: "Sleep Display", action: #selector(screenOffPressed))
     private lazy var refreshButton = makeButton(title: "Refresh", action: #selector(refreshPressed))
 
+    private let behaviorSymbolView = NSImageView()
+    private let behaviorTitleLabel = NSTextField(labelWithString: "Checking sleep behavior")
+    private let behaviorDetailLabel = NSTextField(wrappingLabelWithString: "Buoy is reading the current power state.")
+    private let currentBehaviorValueLabel = NSTextField(labelWithString: "Checking...")
+    private let computerBehaviorValueLabel = NSTextField(labelWithString: "Restore normal sleep")
+    private let displayBehaviorValueLabel = NSTextField(labelWithString: "System default")
+    private let lidBehaviorValueLabel = NSTextField(labelWithString: "Normal sleep")
     private let statusLabel = NSTextField(wrappingLabelWithString: "Loading status...")
     private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy uses the CLI under the hood, so every action stays scriptable.")
 
+    private var currentStatus: BuoyStatus?
     private var isBusy = false {
         didSet { updateBusyState() }
     }
@@ -173,6 +182,18 @@ final class BuoyViewController: NSViewController {
         subtitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
 
         footerLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
+
+        behaviorTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        behaviorDetailLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+        behaviorDetailLabel.maximumNumberOfLines = 0
+        [currentBehaviorValueLabel, computerBehaviorValueLabel, displayBehaviorValueLabel, lidBehaviorValueLabel].forEach {
+            $0.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+            $0.alignment = .right
+            $0.lineBreakMode = .byWordWrapping
+            $0.maximumNumberOfLines = 2
+        }
+        behaviorSymbolView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
+        behaviorSymbolView.imageScaling = .scaleProportionallyDown
 
         statusLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         statusLabel.maximumNumberOfLines = 0
@@ -213,6 +234,7 @@ final class BuoyViewController: NSViewController {
             panelStack.bottomAnchor.constraint(equalTo: panel.contentView!.bottomAnchor, constant: -18)
         ])
 
+        panelStack.addArrangedSubview(makeBehaviorSummary())
         panelStack.addArrangedSubview(enabledSwitch)
         panelStack.addArrangedSubview(clamSwitch)
         panelStack.addArrangedSubview(makeSliderRow(title: "Display sleep", slider: displaySleepSlider, valueLabel: displaySleepValue))
@@ -255,6 +277,7 @@ final class BuoyViewController: NSViewController {
 
         updateSliderLabels()
         updateBusyState()
+        updateBehaviorSummary()
     }
 
     private func makePanel(_ box: NSBox) -> NSBox {
@@ -276,6 +299,54 @@ final class BuoyViewController: NSViewController {
         let button = NSButton(title: title, target: self, action: action)
         button.bezelStyle = .rounded
         return button
+    }
+
+    private func makeBehaviorSummary() -> NSView {
+        let panel = makePanel(behaviorPanel)
+        panel.borderWidth = 0
+
+        let titleStack = NSStackView(views: [behaviorTitleLabel, behaviorDetailLabel])
+        titleStack.orientation = .vertical
+        titleStack.spacing = 4
+
+        let header = NSStackView(views: [behaviorSymbolView, titleStack])
+        header.orientation = .horizontal
+        header.alignment = .top
+        header.spacing = 12
+
+        let facts = NSStackView(views: [
+            makeBehaviorRow(title: "Current state", valueLabel: currentBehaviorValueLabel),
+            makeBehaviorRow(title: "Computer sleep", valueLabel: computerBehaviorValueLabel),
+            makeBehaviorRow(title: "Display sleep", valueLabel: displayBehaviorValueLabel),
+            makeBehaviorRow(title: "Closed lid", valueLabel: lidBehaviorValueLabel)
+        ])
+        facts.orientation = .vertical
+        facts.spacing = 8
+
+        let stack = NSStackView(views: [header, facts])
+        stack.orientation = .vertical
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        panel.contentView?.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: panel.contentView!.leadingAnchor, constant: 14),
+            stack.trailingAnchor.constraint(equalTo: panel.contentView!.trailingAnchor, constant: -14),
+            stack.topAnchor.constraint(equalTo: panel.contentView!.topAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: panel.contentView!.bottomAnchor, constant: -14)
+        ])
+
+        return panel
+    }
+
+    private func makeBehaviorRow(title: String, valueLabel: NSTextField) -> NSView {
+        let label = NSTextField(labelWithString: title)
+        label.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        label.textColor = .secondaryLabelColor
+        let row = NSStackView(views: [label, NSView(), valueLabel])
+        row.orientation = .horizontal
+        row.alignment = .firstBaseline
+        return row
     }
 
     private func makeSliderRow(title: String, slider: NSSlider, valueLabel: NSTextField) -> NSView {
@@ -328,11 +399,13 @@ final class BuoyViewController: NSViewController {
     @objc
     private func sliderChanged(_ sender: NSSlider) {
         updateSliderLabels()
+        updateBehaviorSummary()
     }
 
     @objc
     private func enabledChanged() {
         clamSwitch.isEnabled = enabledSwitch.state == .on
+        updateBehaviorSummary()
     }
 
     @objc
@@ -369,16 +442,68 @@ final class BuoyViewController: NSViewController {
         view.layer?.backgroundColor = backgroundColor.cgColor
         controlsPanel.fillColor = panelColor
         controlsPanel.borderColor = borderColor
+        behaviorPanel.fillColor = panelColor.blended(withFraction: 0.18, of: NSColor.controlAccentColor) ?? panelColor
+        behaviorPanel.borderColor = borderColor
         statusPanel.fillColor = panelColor
         statusPanel.borderColor = borderColor
 
         titleLabel.textColor = primaryTextColor
         subtitleLabel.textColor = secondaryTextColor
         footerLabel.textColor = secondaryTextColor
+        behaviorTitleLabel.textColor = primaryTextColor
+        behaviorDetailLabel.textColor = secondaryTextColor
+        [currentBehaviorValueLabel, computerBehaviorValueLabel, displayBehaviorValueLabel, lidBehaviorValueLabel].forEach {
+            $0.textColor = primaryTextColor
+        }
+        behaviorSymbolView.contentTintColor = enabledSwitch.state == .on ? .controlAccentColor : secondaryTextColor
         statusLabel.textColor = primaryTextColor
         displaySleepValue.textColor = secondaryTextColor
         batteryValue.textColor = secondaryTextColor
         pollValue.textColor = secondaryTextColor
+    }
+
+    private func updateBehaviorSummary() {
+        let serverModeEnabled = enabledSwitch.state == .on
+        let closedLidEnabled = serverModeEnabled && clamSwitch.state == .on
+        let displaySleepMinutes = Int(displaySleepSlider.doubleValue)
+        let batteryFloor = Int(batterySlider.doubleValue)
+
+        let currentPowerSource: String
+        switch currentStatus?.system.powerSource {
+        case "AC Power":
+            currentPowerSource = "on AC"
+        case "Battery Power":
+            currentPowerSource = "on battery"
+        default:
+            currentPowerSource = ""
+        }
+        if let sleepDisabled = currentStatus?.system.sleepDisabled {
+            currentBehaviorValueLabel.stringValue = sleepDisabled == 1
+                ? currentPowerSource.isEmpty ? "Awake now" : "Awake now \(currentPowerSource)"
+                : "Sleep allowed now"
+        } else {
+            currentBehaviorValueLabel.stringValue = "Checking..."
+        }
+
+        if serverModeEnabled {
+            behaviorTitleLabel.stringValue = closedLidEnabled ? "Awake on AC and with the lid closed" : "Awake on AC"
+            behaviorDetailLabel.stringValue = closedLidEnabled
+                ? "Buoy prevents computer sleep while plugged in and can also hold the Mac awake with the lid closed while charging or above \(batteryFloor)% battery."
+                : "Buoy prevents computer sleep while plugged in. The display can still sleep after \(displaySleepMinutes) minutes."
+            computerBehaviorValueLabel.stringValue = "Keep awake on AC"
+            displayBehaviorValueLabel.stringValue = "After \(displaySleepMinutes) min"
+            lidBehaviorValueLabel.stringValue = closedLidEnabled ? "Awake above \(batteryFloor)%" : "Normal sleep"
+            behaviorSymbolView.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Awake on AC")
+        } else {
+            behaviorTitleLabel.stringValue = "Normal sleep restored"
+            behaviorDetailLabel.stringValue = "When Server mode is off, Buoy stops holding the Mac awake and restores the saved AC power settings."
+            computerBehaviorValueLabel.stringValue = "Restore normal sleep"
+            displayBehaviorValueLabel.stringValue = "System default"
+            lidBehaviorValueLabel.stringValue = "System default"
+            behaviorSymbolView.image = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: "Normal sleep restored")
+        }
+
+        refreshColorPalette()
     }
 
     @objc
@@ -448,9 +573,11 @@ final class BuoyViewController: NSViewController {
                 self.isBusy = false
                 switch result {
                 case .success(let status):
+                    self.currentStatus = status
                     self.render(status: status)
                 case .failure(let error):
                     self.statusLabel.stringValue = "Status unavailable.\n\(error.localizedDescription)"
+                    self.updateBehaviorSummary()
                 }
             }
         }
@@ -464,6 +591,7 @@ final class BuoyViewController: NSViewController {
         batterySlider.doubleValue = Double(status.clam.minBattery ?? 25)
         pollSlider.doubleValue = Double(status.clam.pollSeconds ?? 20)
         updateSliderLabels()
+        updateBehaviorSummary()
 
         var lines: [String] = []
         lines.append("power       \(status.system.powerSource)")
@@ -471,7 +599,7 @@ final class BuoyViewController: NSViewController {
             lines.append("battery     \(battery)%")
         }
         if let sleepDisabled = status.system.sleepDisabled {
-            lines.append("lid guard   \(sleepDisabled == 1 ? "awake" : "normal")")
+            lines.append("sleep now   \(sleepDisabled == 1 ? "prevented" : "allowed")")
         }
         lines.append("mode        \(status.mode.enabled ? "enabled" : "disabled")")
         if let displaySleep = status.mode.displaySleepMinutes {
@@ -511,7 +639,6 @@ final class ShellBridge {
             case .success(let output):
                 do {
                     let decoder = JSONDecoder()
-                    decoder.keyDecodingStrategy = .convertFromSnakeCase
                     let status = try decoder.decode(BuoyStatus.self, from: Data(output.utf8))
                     completion(.success(status))
                 } catch {

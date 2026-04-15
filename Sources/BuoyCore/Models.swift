@@ -73,6 +73,12 @@ public struct BuoyModeStatus: Codable, Equatable {
     public var enabled: Bool
     public var enabledAt: String?
     public var displaySleepMinutes: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case enabledAt = "enabled_at"
+        case displaySleepMinutes = "display_sleep_minutes"
+    }
 }
 
 public struct BuoyClamStatus: Codable, Equatable {
@@ -81,12 +87,26 @@ public struct BuoyClamStatus: Codable, Equatable {
     public var pollSeconds: Int?
     public var monitorPID: Int?
     public var monitorRunning: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case enabled
+        case minBattery = "min_battery"
+        case pollSeconds = "poll_seconds"
+        case monitorPID = "monitor_pid"
+        case monitorRunning = "monitor_running"
+    }
 }
 
 public struct BuoySystemStatus: Codable, Equatable {
     public var powerSource: String
     public var batteryPercent: Int?
     public var sleepDisabled: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case powerSource = "power_source"
+        case batteryPercent = "battery_percent"
+        case sleepDisabled = "sleep_disabled"
+    }
 }
 
 public struct BuoyPathStatus: Codable, Equatable {
