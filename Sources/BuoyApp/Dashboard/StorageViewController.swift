@@ -161,27 +161,10 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         stack.orientation = .vertical
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        view.addSubview(scrollView)
-
-        let documentView = NSView(frame: NSRect(origin: .zero, size: NSSize(width: 1080, height: 680)))
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.documentView = documentView
+        let (_, documentView) = installVerticalScrollContainer(in: view)
         documentView.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-            documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-            documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            documentView.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor),
-            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             stack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),

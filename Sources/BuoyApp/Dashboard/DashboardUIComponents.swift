@@ -105,6 +105,37 @@ extension NSView {
     }
 }
 
+final class FlippedContentView: NSView {
+    override var isFlipped: Bool { true }
+}
+
+func installVerticalScrollContainer(in hostView: NSView) -> (scrollView: NSScrollView, documentView: NSView) {
+    let scrollView = NSScrollView()
+    scrollView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.drawsBackground = false
+    scrollView.hasVerticalScroller = true
+    scrollView.autohidesScrollers = true
+    hostView.addSubview(scrollView)
+
+    let documentView = FlippedContentView()
+    documentView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.documentView = documentView
+
+    NSLayoutConstraint.activate([
+        scrollView.leadingAnchor.constraint(equalTo: hostView.leadingAnchor),
+        scrollView.trailingAnchor.constraint(equalTo: hostView.trailingAnchor),
+        scrollView.topAnchor.constraint(equalTo: hostView.topAnchor),
+        scrollView.bottomAnchor.constraint(equalTo: hostView.bottomAnchor),
+        documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+        documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+        documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+        documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+        documentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor)
+    ])
+
+    return (scrollView, documentView)
+}
+
 final class AdaptiveGridView: NSView {
     private let rootStack = NSStackView()
     private let minColumnWidth: CGFloat

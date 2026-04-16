@@ -35,12 +35,22 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     private func buildLayout() {
         textView.isEditable = false
         textView.isSelectable = true
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
         textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         textView.drawsBackground = false
         textView.textColor = BuoyChrome.primaryTextColor
+        textView.textContainerInset = NSSize(width: 10, height: 12)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        textView.minSize = .zero
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
 
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.autohidesScrollers = true
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
         scroll.documentView = textView

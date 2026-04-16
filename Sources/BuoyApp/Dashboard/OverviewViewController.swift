@@ -25,16 +25,7 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
     }
 
     private func buildLayout() {
-        let scrollView = NSScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        view.addSubview(scrollView)
-
-        let documentView = NSView()
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.documentView = documentView
+        let (_, documentView) = installVerticalScrollContainer(in: view)
 
         [topCPULabel, topMemLabel].forEach {
             $0.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
@@ -63,15 +54,6 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
         documentView.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
-            documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
-            documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
-            documentView.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor),
-            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             stack.leadingAnchor.constraint(greaterThanOrEqualTo: documentView.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(lessThanOrEqualTo: documentView.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
