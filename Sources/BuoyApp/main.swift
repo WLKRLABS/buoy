@@ -102,6 +102,8 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
     private let bridge = ShellBridge()
     private let contentController = BuoyViewController()
     private lazy var mainController = BuoyMainViewController(powerVC: contentController)
+    private var isApplyingVisibleFrameClamp = false
+    private var hasScheduledVisibleFrameClamp = false
 
     init() {
         let initialFrame = Self.initialWindowFrame()
@@ -145,14 +147,40 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func ensureWindowFitsVisibleFrame() {
-        guard let window else { return }
-        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
+        applyVisibleFrameClampIfNeeded()
+    }
+
+    // Avoid re-entering AppKit's layout/resize pass by deferring clamp work.
+    private func scheduleEnsureWindowFitsVisibleFrame() {
+        guard !hasScheduledVisibleFrameClamp else { return }
+        hasScheduledVisibleFrameClamp = true
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.hasScheduledVisibleFrameClamp = false
+            self.applyVisibleFrameClampIfNeeded()
+        }
+    }
+
+    private func applyVisibleFrameClampIfNeeded() {
+        guard let window, !isApplyingVisibleFrameClamp else { return }
+
+        let frame = clampedFrame(for: window, proposedFrame: window.frame)
+        guard !window.frame.equalTo(frame) else { return }
+
+        isApplyingVisibleFrameClamp = true
+        defer { isApplyingVisibleFrameClamp = false }
+        window.setFrame(frame, display: true, animate: false)
+    }
+
+    private func clampedFrame(for window: NSWindow, proposedFrame: NSRect) -> NSRect {
+        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? proposedFrame
         let horizontalMargin: CGFloat = 48
         let verticalMargin: CGFloat = 72
         let maxWidth = max(window.minSize.width, visible.width - horizontalMargin)
         let maxHeight = max(window.minSize.height, visible.height - verticalMargin)
 
-        var frame = window.frame
+        var frame = proposedFrame
         frame.size.width = min(frame.width, maxWidth)
         frame.size.height = min(frame.height, maxHeight)
 
@@ -168,18 +196,22 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
         if frame.minY < visible.minY {
             frame.origin.y = visible.minY
         }
+        return frame
+    }
 
-        if !window.frame.equalTo(frame) {
-            window.setFrame(frame, display: true, animate: false)
-        }
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        clampedFrame(
+            for: sender,
+            proposedFrame: NSRect(origin: sender.frame.origin, size: frameSize)
+        ).size
     }
 
     func windowDidResize(_ notification: Notification) {
-        ensureWindowFitsVisibleFrame()
+        scheduleEnsureWindowFitsVisibleFrame()
     }
 
     func windowDidChangeScreen(_ notification: Notification) {
-        ensureWindowFitsVisibleFrame()
+        scheduleEnsureWindowFitsVisibleFrame()
     }
 }
 
