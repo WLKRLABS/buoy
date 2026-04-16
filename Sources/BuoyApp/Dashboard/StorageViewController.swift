@@ -439,7 +439,9 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             value: DashboardFormatters.bytes(snapshot.explainedBytes),
             detail: snapshot.unexplainedBytes > 0
                 ? "\(DashboardFormatters.bytes(snapshot.unexplainedBytes)) still protected or opaque"
-                : "Root scan fully accounted for used space"
+                : snapshot.scanMode == .summaryOnly
+                    ? "Summary refresh apportioned the remaining space to system or protected data"
+                    : "Deep scan fully accounted for used space"
         )
         cleanupCard.set(
             value: DashboardFormatters.bytes(snapshot.reclaimableBytes),
@@ -447,7 +449,9 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         )
         systemCard.set(
             value: DashboardFormatters.bytes(systemAndHidden),
-            detail: "System data, hidden folders, and unexplained usage"
+            detail: snapshot.scanMode == .summaryOnly
+                ? "Residual system data, hidden folders, and skipped protected paths"
+                : "System data, hidden folders, and unexplained usage"
         )
     }
 
@@ -468,6 +472,8 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
         if snapshot.unexplainedBytes > 0 {
             breakdownLabel.stringValue = "Accounted for \(DashboardFormatters.bytes(snapshot.explainedBytes)) of \(DashboardFormatters.bytes(Int64(snapshot.disk.usedGB * 1_073_741_824.0))). Remaining \(DashboardFormatters.bytes(snapshot.unexplainedBytes)) is likely APFS snapshots, purgeable space, or protected system data. \(breakdownText)"
+        } else if snapshot.scanMode == .summaryOnly {
+            breakdownLabel.stringValue = "Summary refresh accounted for the used disk space by assigning the remaining gap to system or protected data. \(breakdownText)"
         } else {
             breakdownLabel.stringValue = "Root scan accounted for the used disk space. \(breakdownText)"
         }
@@ -719,10 +725,15 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
-        panel.directoryURL = scope.defaultURL.deletingLastPathComponent()
+        panel.directoryURL = scope.defaultURL
         panel.prompt = "Grant Access"
-        panel.message = "Choose the \(scope.title) folder you want Buoy to scan. Buoy stores a bookmark so this access survives app relaunches."
-        return panel.runModal() == .OK ? panel.url : nil
+        panel.message = "Choose the \(scope.title) folder you want Buoy to scan. You can also choose an ancestor like your home folder, and Buoy will still only scan \(scope.title)."
+        guard panel.runModal() == .OK, let selectedURL = panel.url else { return nil }
+        guard scope.effectiveURL(for: selectedURL) != nil else {
+            statusLabel.stringValue = "Choose \(scope.title) or one of its parent folders so Buoy can normalize the grant correctly."
+            return nil
+        }
+        return selectedURL
     }
 
     private func requestCustomLocations() -> [URL]? {

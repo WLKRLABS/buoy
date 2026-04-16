@@ -6,7 +6,8 @@ public protocol CommandRunning {
         arguments: [String],
         environment: [String: String]?,
         interactive: Bool,
-        allowNonZeroExit: Bool
+        allowNonZeroExit: Bool,
+        timeout: TimeInterval?
     ) throws -> CommandOutput
 
     func runDetached(
@@ -22,14 +23,16 @@ public extension CommandRunning {
         arguments: [String],
         environment: [String: String]? = nil,
         interactive: Bool = false,
-        allowNonZeroExit: Bool = false
+        allowNonZeroExit: Bool = false,
+        timeout: TimeInterval? = nil
     ) throws -> CommandOutput {
         try run(
             executable: executable,
             arguments: arguments,
             environment: environment,
             interactive: interactive,
-            allowNonZeroExit: allowNonZeroExit
+            allowNonZeroExit: allowNonZeroExit,
+            timeout: timeout
         )
     }
 }
@@ -42,7 +45,8 @@ public final class SystemCommandRunner: CommandRunning {
         arguments: [String],
         environment: [String: String]?,
         interactive: Bool,
-        allowNonZeroExit: Bool
+        allowNonZeroExit: Bool,
+        timeout: TimeInterval?
     ) throws -> CommandOutput {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -70,7 +74,19 @@ public final class SystemCommandRunner: CommandRunning {
             throw BuoyError.missingExecutable("Unable to run \(executable): \(error.localizedDescription)")
         }
 
-        process.waitUntilExit()
+        if let timeout {
+            let deadline = Date().addingTimeInterval(timeout)
+            while process.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+
+            if process.isRunning {
+                process.terminate()
+                process.waitUntilExit()
+            }
+        } else {
+            process.waitUntilExit()
+        }
 
         let stdout: String
         let stderr: String
@@ -81,6 +97,11 @@ public final class SystemCommandRunner: CommandRunning {
         } else {
             stdout = String(data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             stderr = String(data: stderrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        }
+
+        if let timeout, process.terminationReason == .uncaughtSignal {
+            let command = ([executable] + arguments).joined(separator: " ")
+            throw BuoyError.commandFailed("Timed out after \(String(format: "%.1f", timeout))s: \(command)")
         }
 
         if process.terminationStatus != 0 && !allowNonZeroExit {

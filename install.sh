@@ -50,6 +50,13 @@ done
 
 mkdir -p "$BIN_DIR" "$APP_DIR"
 
+sanitize_app_bundle() {
+  local app_path="$1"
+  if command -v xattr >/dev/null 2>&1; then
+    xattr -cr "$app_path" || true
+  fi
+}
+
 download_release_assets() {
   local tmp_dir="$1"
   local base_url="https://github.com/$DOWNLOAD_REPO/releases/latest/download"
@@ -78,6 +85,7 @@ else
     chmod +x "$BIN_DIR/buoy"
     rm -rf "$APP_DIR/Buoy.app"
     ditto -x -k "$TMP_DIR/Buoy.app.zip" "$APP_DIR"
+    sanitize_app_bundle "$APP_DIR/Buoy.app"
     echo "Installed buoy at $BIN_DIR/buoy"
     echo "Installed Buoy.app at $APP_DIR/Buoy.app"
     exit 0
@@ -98,6 +106,7 @@ chmod +x "$BIN_DIR/buoy"
 
 rm -rf "$APP_DIR/Buoy.app"
 cp -R "$OUTPUT_DIR/Buoy.app" "$APP_DIR/Buoy.app"
+sanitize_app_bundle "$APP_DIR/Buoy.app"
 
 echo "Installed buoy at $BIN_DIR/buoy"
 echo "Installed Buoy.app at $APP_DIR/Buoy.app"

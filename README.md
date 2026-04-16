@@ -132,6 +132,13 @@ Build the app:
 ./scripts/build-app.sh
 ```
 
+Optional local signing for stable macOS permissions across local updates:
+
+```bash
+./scripts/setup-local-signing.sh
+./scripts/build-app.sh
+```
+
 Package release assets:
 
 ```bash

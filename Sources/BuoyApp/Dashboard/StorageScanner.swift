@@ -10,11 +10,34 @@ final class StorageScanner {
         var note: String
     }
 
-    private let queue = DispatchQueue(label: "buoy.storage.scanner", qos: .utility)
+    private struct MeasurementPolicy {
+        var batchedCommand: Bool
+        var perPathTimeout: TimeInterval?
+    }
+
+    private static let residualSystemEstimatePath = "/.buoy-system-estimate"
+
+    private let queue: DispatchQueue
     private let stateLock = NSLock()
-    private let runner = SystemCommandRunner()
-    private let fileManager = FileManager.default
+    private let runner: CommandRunning
+    private let fileManager: FileManager
+    private let homeURL: URL
+    private let diskSampler: () -> DiskSnapshot
     private var generation: UInt64 = 0
+
+    init(
+        runner: CommandRunning = SystemCommandRunner(),
+        fileManager: FileManager = .default,
+        homeURL: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        diskSampler: @escaping () -> DiskSnapshot = { DiskMetricsCollector.sample() },
+        queue: DispatchQueue = DispatchQueue(label: "buoy.storage.scanner", qos: .utility)
+    ) {
+        self.runner = runner
+        self.fileManager = fileManager
+        self.homeURL = homeURL.standardizedFileURL
+        self.diskSampler = diskSampler
+        self.queue = queue
+    }
 
     func scan(
         mode: StorageScanMode,
@@ -28,16 +51,26 @@ final class StorageScanner {
 
             do {
                 let snapshot = try self.buildSnapshot(
-                    token: token,
                     mode: mode,
                     access: access,
-                    progress: progress
+                    progress: { message in
+                        self.report(token: token, progress: progress, message: message)
+                    },
+                    shouldContinue: { self.isCurrent(token) }
                 )
                 self.finish(token: token, result: .success(snapshot), completion: completion)
             } catch {
                 self.finish(token: token, result: .failure(error), completion: completion)
             }
         }
+    }
+
+    func buildSnapshotSynchronously(
+        mode: StorageScanMode,
+        access: StorageAccessSession,
+        progress: @escaping ProgressHandler = { _ in }
+    ) throws -> StorageScanSnapshot {
+        try buildSnapshot(mode: mode, access: access, progress: progress, shouldContinue: { true })
     }
 
     private func nextGeneration() -> UInt64 {
@@ -72,48 +105,58 @@ final class StorageScanner {
     }
 
     private func buildSnapshot(
-        token: UInt64,
         mode: StorageScanMode,
         access: StorageAccessSession,
-        progress: @escaping ProgressHandler
+        progress: @escaping ProgressHandler,
+        shouldContinue: @escaping () -> Bool
     ) throws -> StorageScanSnapshot {
         defer { access.finish() }
 
         let startedAt = Date()
-        let homeURL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-        let userDisk = DiskMetricsCollector.sample()
+        let measurementPolicy = measurementPolicy(for: mode)
+        let userDisk = diskSampler()
         let usedBytes = Self.bytes(fromGigabytes: userDisk.usedGB)
 
         var inaccessiblePaths = Set<String>()
         var collectedItems: [String: StorageItem] = [:]
+        var breakdownItems: [String: StorageItem] = [:]
 
-        report(token: token, progress: progress, message: "Scanning allowed storage roots…")
-        let summaryTargets = summaryTargets(homeURL: homeURL, access: access)
-        let summaryItems = try measuredItems(for: summaryTargets, inaccessiblePaths: &inaccessiblePaths)
+        guard shouldContinue() else { throw BuoyError.io("Storage scan superseded") }
+        progress("Scanning allowed storage roots…")
+        let summaryItems = try measuredItems(
+            for: summaryTargets(homeURL: homeURL, access: access),
+            inaccessiblePaths: &inaccessiblePaths,
+            policy: measurementPolicy
+        )
         merge(summaryItems, into: &collectedItems)
+        merge(summaryItems, into: &breakdownItems)
 
-        let nestedParents = deepInspectionTargets(homeURL: homeURL, access: access)
-        for parent in nestedParents {
-            guard isCurrent(token) else { throw BuoyError.io("Storage scan superseded") }
-            report(
-                token: token,
-                progress: progress,
-                message: "Inspecting \(DashboardFormatters.abbreviatedPath(parent.path))…"
-            )
-            let items = try measuredChildren(of: parent, inaccessiblePaths: &inaccessiblePaths)
-            merge(items, into: &collectedItems)
-        }
-
-        report(token: token, progress: progress, message: "Measuring likely cleanup targets…")
+        guard shouldContinue() else { throw BuoyError.io("Storage scan superseded") }
+        progress("Measuring likely cleanup targets…")
         let cleanupItems = try measuredCleanupTargets(
             homeURL: homeURL,
             access: access,
-            inaccessiblePaths: &inaccessiblePaths
+            inaccessiblePaths: &inaccessiblePaths,
+            policy: measurementPolicy
         )
         merge(cleanupItems, into: &collectedItems)
+        merge(cleanupItems, into: &breakdownItems)
 
         if mode == .deep {
-            report(token: token, progress: progress, message: "Finding the largest files…")
+            let nestedParents = deepInspectionTargets(homeURL: homeURL, access: access)
+            for parent in nestedParents {
+                guard shouldContinue() else { throw BuoyError.io("Storage scan superseded") }
+                progress("Inspecting \(DashboardFormatters.abbreviatedPath(parent.path))…")
+                let items = try measuredChildren(
+                    of: parent,
+                    inaccessiblePaths: &inaccessiblePaths,
+                    policy: measurementPolicy
+                )
+                merge(items, into: &collectedItems)
+            }
+
+            guard shouldContinue() else { throw BuoyError.io("Storage scan superseded") }
+            progress("Finding the largest files…")
             let topFiles = largestFiles(
                 in: largestFileRoots(homeURL: homeURL, access: access),
                 limit: 72,
@@ -122,17 +165,26 @@ final class StorageScanner {
             merge(topFiles, into: &collectedItems)
         }
 
-        let rootBreakdown = summarize(items: summaryItems)
+        let knownBreakdownItems = Array(breakdownItems.values)
+        let knownExplainedBytes = min(knownBreakdownItems.reduce(Int64(0)) { $0 + $1.sizeBytes }, usedBytes)
+        let residualSystemBytes = max(0, usedBytes - knownExplainedBytes)
+
+        var breakdownInput = knownBreakdownItems
+        if residualSystemBytes > 0 {
+            breakdownInput.append(makeResidualSystemEstimate(sizeBytes: residualSystemBytes))
+        }
+
+        let rootBreakdown = summarize(items: breakdownInput)
         let reclaimableBytes = cleanupItems.reduce(Int64(0)) { $0 + $1.sizeBytes }
-        let systemBytes = rootBreakdown.reduce(Int64(0)) { partial, summary in
-            switch summary.category {
+        let systemBytes = breakdownInput.reduce(Int64(0)) { partial, item in
+            switch item.category {
             case .system, .library, .hidden:
-                return partial + summary.sizeBytes
+                return partial + item.sizeBytes
             default:
                 return partial
             }
         }
-        let explainedBytes = min(summaryItems.reduce(Int64(0)) { $0 + $1.sizeBytes }, usedBytes)
+        let explainedBytes = min(knownExplainedBytes + residualSystemBytes, usedBytes)
         let unexplainedBytes = max(0, usedBytes - explainedBytes)
 
         let heavyItems = collectedItems.values
@@ -151,9 +203,9 @@ final class StorageScanner {
             }
             .prefix(6)
 
-        let homeHighlights = summaryItems
+        let homeHighlights = knownBreakdownItems
             .filter { item in
-                item.path.hasPrefix(NSHomeDirectory()) || item.path.hasPrefix("/Volumes/")
+                item.path.hasPrefix(homeURL.path) || item.path.hasPrefix("/Volumes/")
             }
             .sorted { lhs, rhs in
                 lhs.sizeBytes == rhs.sizeBytes
@@ -179,21 +231,46 @@ final class StorageScanner {
         )
     }
 
+    private func measurementPolicy(for mode: StorageScanMode) -> MeasurementPolicy {
+        switch mode {
+        case .summaryOnly:
+            // Summary mode must finish quickly even when a few folders are pathological.
+            return MeasurementPolicy(batchedCommand: false, perPathTimeout: 1.0)
+        case .deep:
+            return MeasurementPolicy(batchedCommand: true, perPathTimeout: nil)
+        }
+    }
+
+    private func makeResidualSystemEstimate(sizeBytes: Int64) -> StorageItem {
+        StorageItem(
+            path: Self.residualSystemEstimatePath,
+            name: "System Estimate",
+            kind: .folder,
+            sizeBytes: sizeBytes,
+            category: .system,
+            safety: .essential,
+            isHidden: true,
+            isCleanupCandidate: false,
+            note: "Residual APFS usage, snapshots, and protected folders Buoy did not walk in summary mode."
+        )
+    }
+
     private func summaryTargets(homeURL: URL, access: StorageAccessSession) -> [URL] {
+        let libraryURL = homeURL.appendingPathComponent("Library", isDirectory: true)
+        let protectedURLs = access.protectedURLs.compactMap { scope, url in
+            scope == .downloads ? nil : url
+        }
         let targets = [
             URL(fileURLWithPath: "/Applications", isDirectory: true),
-            URL(fileURLWithPath: "/Library", isDirectory: true),
-            URL(fileURLWithPath: "/System", isDirectory: true),
-            URL(fileURLWithPath: "/private", isDirectory: true),
-            URL(fileURLWithPath: "/usr", isDirectory: true),
-            URL(fileURLWithPath: "/opt", isDirectory: true),
+            URL(fileURLWithPath: "/Users/Shared", isDirectory: true),
             homeURL.appendingPathComponent("Applications", isDirectory: true),
-            homeURL.appendingPathComponent("Library", isDirectory: true),
+            libraryURL.appendingPathComponent("Application Support", isDirectory: true),
+            libraryURL.appendingPathComponent("Containers", isDirectory: true),
+            libraryURL.appendingPathComponent("Group Containers", isDirectory: true),
             homeURL.appendingPathComponent("Movies", isDirectory: true),
             homeURL.appendingPathComponent("Music", isDirectory: true),
-            homeURL.appendingPathComponent("Pictures", isDirectory: true),
             homeURL.appendingPathComponent(".Trash", isDirectory: true)
-        ] + Array(access.protectedURLs.values) + access.customURLs
+        ] + protectedURLs + access.customURLs
 
         return uniqueExistingDirectories(from: targets)
     }
@@ -217,8 +294,7 @@ final class StorageScanner {
         let roots = [
             homeURL.appendingPathComponent("Library", isDirectory: true),
             homeURL.appendingPathComponent("Movies", isDirectory: true),
-            homeURL.appendingPathComponent("Music", isDirectory: true),
-            homeURL.appendingPathComponent("Pictures", isDirectory: true)
+            homeURL.appendingPathComponent("Music", isDirectory: true)
         ] + Array(access.protectedURLs.values) + access.customURLs
 
         return uniqueExistingDirectories(from: roots)
@@ -245,12 +321,17 @@ final class StorageScanner {
 
     private func measuredChildren(
         of parent: URL,
-        inaccessiblePaths: inout Set<String>
+        inaccessiblePaths: inout Set<String>,
+        policy: MeasurementPolicy
     ) throws -> [StorageItem] {
         let children = directChildren(of: parent)
         guard !children.isEmpty else { return [] }
 
-        let sizes = try measuredSizes(for: children, inaccessiblePaths: &inaccessiblePaths)
+        let sizes = try measuredSizes(
+            for: children,
+            inaccessiblePaths: &inaccessiblePaths,
+            policy: policy
+        )
         return children.compactMap { url in
             guard let size = sizes[url.path], size > 0 else { return nil }
             return makeItem(url: url, sizeBytes: size, preferredKind: nil, cleanupOverride: nil)
@@ -259,9 +340,14 @@ final class StorageScanner {
 
     private func measuredItems(
         for urls: [URL],
-        inaccessiblePaths: inout Set<String>
+        inaccessiblePaths: inout Set<String>,
+        policy: MeasurementPolicy
     ) throws -> [StorageItem] {
-        let sizes = try measuredSizes(for: urls, inaccessiblePaths: &inaccessiblePaths)
+        let sizes = try measuredSizes(
+            for: urls,
+            inaccessiblePaths: &inaccessiblePaths,
+            policy: policy
+        )
         return urls.compactMap { url in
             guard let size = sizes[url.path], size > 0 else { return nil }
             return makeItem(url: url, sizeBytes: size, preferredKind: nil, cleanupOverride: nil)
@@ -271,13 +357,18 @@ final class StorageScanner {
     private func measuredCleanupTargets(
         homeURL: URL,
         access: StorageAccessSession,
-        inaccessiblePaths: inout Set<String>
+        inaccessiblePaths: inout Set<String>,
+        policy: MeasurementPolicy
     ) throws -> [StorageItem] {
         let targets = cleanupTargets(homeURL: homeURL, access: access)
             .filter { fileManager.fileExists(atPath: $0.url.path) }
         guard !targets.isEmpty else { return [] }
 
-        let sizes = try measuredSizes(for: targets.map(\.url), inaccessiblePaths: &inaccessiblePaths)
+        let sizes = try measuredSizes(
+            for: targets.map(\.url),
+            inaccessiblePaths: &inaccessiblePaths,
+            policy: policy
+        )
         return targets.compactMap { target in
             guard let size = sizes[target.url.path], size > 0 else { return nil }
             return makeItem(
@@ -291,28 +382,55 @@ final class StorageScanner {
 
     private func measuredSizes(
         for urls: [URL],
-        inaccessiblePaths: inout Set<String>
+        inaccessiblePaths: inout Set<String>,
+        policy: MeasurementPolicy
     ) throws -> [String: Int64] {
         let existing = urls.filter { fileManager.fileExists(atPath: $0.path) }
         guard !existing.isEmpty else { return [:] }
 
-        let output = try runner.run(
-            executable: "/usr/bin/du",
-            arguments: ["-skx"] + existing.map(\.path),
-            allowNonZeroExit: true
-        )
+        var sizes: [String: Int64] = [:]
+        if policy.batchedCommand {
+            let output = try runner.run(
+                executable: "/usr/bin/du",
+                arguments: ["-skx"] + existing.map(\.path),
+                allowNonZeroExit: true,
+                timeout: policy.perPathTimeout
+            )
+            apply(output: output, sizes: &sizes, inaccessiblePaths: &inaccessiblePaths)
+            return sizes
+        }
 
+        for url in existing {
+            do {
+                let output = try runner.run(
+                    executable: "/usr/bin/du",
+                    arguments: ["-skx", url.path],
+                    allowNonZeroExit: true,
+                    timeout: policy.perPathTimeout
+                )
+                apply(output: output, sizes: &sizes, inaccessiblePaths: &inaccessiblePaths)
+            } catch {
+                inaccessiblePaths.insert(url.path)
+            }
+        }
+
+        return sizes
+    }
+
+    private func apply(
+        output: CommandOutput,
+        sizes: inout [String: Int64],
+        inaccessiblePaths: inout Set<String>
+    ) {
         if !output.stderr.isEmpty {
             parseInaccessiblePaths(stderr: output.stderr).forEach { inaccessiblePaths.insert($0) }
         }
 
-        var sizes: [String: Int64] = [:]
         for rawLine in output.stdout.split(separator: "\n") {
             let parts = rawLine.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: true)
             guard parts.count == 2, let kibibytes = Int64(parts[0]) else { continue }
             sizes[String(parts[1])] = kibibytes * 1024
         }
-        return sizes
     }
 
     private func directChildren(of parent: URL) -> [URL] {
@@ -449,7 +567,7 @@ final class StorageScanner {
         isHidden: Bool,
         kind: StorageItemKind
     ) -> (category: StorageCategory, safety: StorageSafety, isCleanupCandidate: Bool, note: String) {
-        let home = NSHomeDirectory()
+        let home = homeURL.path
         let trash = (home as NSString).appendingPathComponent(".Trash")
         let homeLibrary = (home as NSString).appendingPathComponent("Library")
         let caches = (homeLibrary as NSString).appendingPathComponent("Caches")

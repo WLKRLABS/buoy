@@ -4,6 +4,7 @@ enum StorageProtectedScope: String, CaseIterable {
     case desktop
     case documents
     case downloads
+    case pictures
 
     var title: String {
         switch self {
@@ -13,6 +14,8 @@ enum StorageProtectedScope: String, CaseIterable {
             return "Documents"
         case .downloads:
             return "Downloads"
+        case .pictures:
+            return "Pictures"
         }
     }
 
@@ -24,6 +27,8 @@ enum StorageProtectedScope: String, CaseIterable {
             return "Keep Documents opt-in to avoid surprise permission prompts."
         case .downloads:
             return "Downloads is useful for cleanup, but it should be your call."
+        case .pictures:
+            return "Pictures can trigger the macOS Photos prompt, so keep it opt-in."
         }
     }
 
@@ -36,6 +41,8 @@ enum StorageProtectedScope: String, CaseIterable {
             return home.appendingPathComponent("Documents", isDirectory: true)
         case .downloads:
             return home.appendingPathComponent("Downloads", isDirectory: true)
+        case .pictures:
+            return home.appendingPathComponent("Pictures", isDirectory: true)
         }
     }
 
@@ -45,6 +52,22 @@ enum StorageProtectedScope: String, CaseIterable {
 
     var bookmarkDefaultsKey: String {
         "storage_access.\(rawValue).bookmark"
+    }
+
+    func effectiveURL(for grantedURL: URL) -> URL? {
+        let desiredURL = defaultURL.standardizedFileURL
+        let desiredPath = desiredURL.path
+        let grantedPath = grantedURL.standardizedFileURL.path
+
+        if grantedPath == desiredPath {
+            return desiredURL
+        }
+
+        if desiredPath.hasPrefix(grantedPath + "/") {
+            return desiredURL
+        }
+
+        return nil
     }
 }
 
@@ -102,15 +125,20 @@ final class StorageAccessManager {
     }
 
     func resolvedURL(for scope: StorageProtectedScope) -> URL? {
-        guard let data = defaults.data(forKey: scope.bookmarkDefaultsKey) else { return nil }
-        return resolveURL(forBookmarkData: data) { [weak self] refreshed in
-            self?.defaults.set(refreshed, forKey: scope.bookmarkDefaultsKey)
-        }
+        guard let url = resolvedBookmarkURL(for: scope) else { return nil }
+        return scope.effectiveURL(for: url)
     }
 
     func saveBookmark(for scope: StorageProtectedScope, url: URL) throws {
         let data = try bookmarkData(for: url)
         defaults.set(data, forKey: scope.bookmarkDefaultsKey)
+    }
+
+    private func resolvedBookmarkURL(for scope: StorageProtectedScope) -> URL? {
+        guard let data = defaults.data(forKey: scope.bookmarkDefaultsKey) else { return nil }
+        return resolveURL(forBookmarkData: data) { [weak self] refreshed in
+            self?.defaults.set(refreshed, forKey: scope.bookmarkDefaultsKey)
+        }
     }
 
     func isCustomLocationsEnabled() -> Bool {
@@ -182,11 +210,14 @@ final class StorageAccessManager {
         var stopHandlers: [() -> Void] = []
 
         for scope in StorageProtectedScope.allCases where isEnabled(scope) {
-            guard let url = resolvedURL(for: scope) else { continue }
-            if url.startAccessingSecurityScopedResource() {
-                stopHandlers.append { url.stopAccessingSecurityScopedResource() }
+            guard let grantedURL = resolvedBookmarkURL(for: scope),
+                  let effectiveURL = scope.effectiveURL(for: grantedURL) else {
+                continue
             }
-            protectedURLs[scope] = url
+            if grantedURL.startAccessingSecurityScopedResource() {
+                stopHandlers.append { grantedURL.stopAccessingSecurityScopedResource() }
+            }
+            protectedURLs[scope] = effectiveURL
         }
 
         if isCustomLocationsEnabled() {

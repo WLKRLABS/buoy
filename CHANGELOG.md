@@ -19,6 +19,9 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 - Fixed the app window and dashboard layouts so they hold up better at both smaller and larger sizes, including wrapped controls for dense tabs like Storage.
 - Fixed missing window and section navigation affordances by wiring `⌘W`, `⌘Q`, `⌘1` through `⌘7`, and section cycling commands into the native menu bar.
+- Fixed the Storage tab summary refresh so it uses a macOS-closer disk-used metric, normalizes protected-folder grants like `~` back to the intended Desktop/Documents/Downloads/Pictures folders, and avoids stalling on giant system roots.
+- Fixed repeated Photos permission popups by making `Pictures` opt-in for storage scans and signing the built app bundle with a stable identifier so macOS can persist app permissions.
+- Fixed local build identity drift by adding a repo-managed local signing setup so Buoy can keep the same macOS code-signing identity across local rebuilds and installs.
 
 ## [0.2.0] - 2026-04-15
 

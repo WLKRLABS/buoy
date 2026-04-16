@@ -6,21 +6,33 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT_DIR/dist}"
 APP_NAME="${APP_NAME:-Buoy}"
 APP_DIR="$OUTPUT_DIR/$APP_NAME.app"
+LOCAL_SIGNING_ENV="${LOCAL_SIGNING_ENV:-$HOME/.config/buoy/local-signing.env}"
 SWIFTC_BIN="${SWIFTC_BIN:-$(xcrun --find swiftc)}"
 SDK_PATH="${SDK_PATH:-$(xcrun --show-sdk-path)}"
 ICON_SOURCE="$ROOT_DIR/buoy-icon.png"
 ICON_NAME="BuoyIcon"
 APP_VERSION="$("$ROOT_DIR/scripts/version.sh" version)"
 APP_BUILD="$("$ROOT_DIR/scripts/version.sh" build-number)"
+CODESIGN_BIN="${CODESIGN_BIN:-$(xcrun --find codesign)}"
+CODESIGN_IDENTITY="${CODESIGN_IDENTITY:--}"
+CODESIGN_KEYCHAIN="${CODESIGN_KEYCHAIN:-}"
+CODESIGN_KEYCHAIN_PASSWORD="${CODESIGN_KEYCHAIN_PASSWORD:-}"
 TMP_DIR="$(mktemp -d)"
 GENERATED_VERSION_FILE="$TMP_DIR/BuoyVersion.generated.swift"
+STAGING_APP_DIR="$TMP_DIR/$APP_NAME.app"
 
 trap 'rm -rf "$TMP_DIR"' EXIT
+
+if [[ -f "$LOCAL_SIGNING_ENV" ]]; then
+  # shellcheck disable=SC1090
+  source "$LOCAL_SIGNING_ENV"
+fi
 
 "$ROOT_DIR/scripts/build-cli.sh"
 
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources/bin"
+rm -rf "$STAGING_APP_DIR"
+mkdir -p "$STAGING_APP_DIR/Contents/MacOS" "$STAGING_APP_DIR/Contents/Resources/bin"
 
 cat > "$GENERATED_VERSION_FILE" <<EOF
 import Foundation
@@ -29,7 +41,7 @@ public let buoyVersion = "$APP_VERSION"
 public let buoyBuildNumber = "$APP_BUILD"
 EOF
 
-cat > "$APP_DIR/Contents/Info.plist" <<EOF
+cat > "$STAGING_APP_DIR/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -70,15 +82,15 @@ echo "Building Buoy.app..."
   "$ROOT_DIR"/Sources/BuoyCore/SystemMetrics/*.swift \
   "$ROOT_DIR"/Sources/BuoyApp/Dashboard/*.swift \
   "$ROOT_DIR"/Sources/BuoyApp/main.swift \
-  -o "$APP_DIR/Contents/MacOS/Buoy"
+  -o "$STAGING_APP_DIR/Contents/MacOS/Buoy"
 
-cp "$OUTPUT_DIR/buoy" "$APP_DIR/Contents/Resources/bin/buoy"
-chmod +x "$APP_DIR/Contents/MacOS/Buoy" "$APP_DIR/Contents/Resources/bin/buoy"
+cp "$OUTPUT_DIR/buoy" "$STAGING_APP_DIR/Contents/Resources/bin/buoy"
+chmod +x "$STAGING_APP_DIR/Contents/MacOS/Buoy" "$STAGING_APP_DIR/Contents/Resources/bin/buoy"
 
 if [[ -f "$ICON_SOURCE" ]]; then
-  cp "$ICON_SOURCE" "$APP_DIR/Contents/Resources/buoy-icon.png"
+  cp "$ICON_SOURCE" "$STAGING_APP_DIR/Contents/Resources/buoy-icon.png"
 
-  ICONSET_DIR="$OUTPUT_DIR/${ICON_NAME}.iconset"
+  ICONSET_DIR="$TMP_DIR/${ICON_NAME}.iconset"
   rm -rf "$ICONSET_DIR"
   mkdir -p "$ICONSET_DIR"
 
@@ -88,8 +100,36 @@ if [[ -f "$ICON_SOURCE" ]]; then
     sips -z "$retina_size" "$retina_size" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" >/dev/null
   done
 
-  iconutil -c icns "$ICONSET_DIR" -o "$APP_DIR/Contents/Resources/${ICON_NAME}.icns"
+  iconutil -c icns "$ICONSET_DIR" -o "$STAGING_APP_DIR/Contents/Resources/${ICON_NAME}.icns"
   rm -rf "$ICONSET_DIR"
 fi
+
+if command -v xattr >/dev/null 2>&1; then
+  xattr -cr "$STAGING_APP_DIR"
+fi
+
+echo "Signing Buoy.app..."
+if [[ -n "$CODESIGN_KEYCHAIN" && -n "$CODESIGN_KEYCHAIN_PASSWORD" ]]; then
+  security unlock-keychain -p "$CODESIGN_KEYCHAIN_PASSWORD" "$CODESIGN_KEYCHAIN" >/dev/null 2>&1 || true
+fi
+
+codesign_args=(
+  --force
+  --sign "$CODESIGN_IDENTITY"
+  --identifier "com.scwlkr.buoy"
+)
+
+if [[ -n "$CODESIGN_KEYCHAIN" ]]; then
+  codesign_args+=(--keychain "$CODESIGN_KEYCHAIN")
+fi
+
+"${CODESIGN_BIN}" "${codesign_args[@]}" "$STAGING_APP_DIR"
+
+if command -v xattr >/dev/null 2>&1; then
+  xattr -cr "$STAGING_APP_DIR"
+fi
+
+mkdir -p "$OUTPUT_DIR"
+ditto "$STAGING_APP_DIR" "$APP_DIR"
 
 echo "App built at $APP_DIR"
