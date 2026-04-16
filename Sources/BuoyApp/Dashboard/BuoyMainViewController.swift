@@ -10,6 +10,7 @@ final class BuoyMainViewController: NSTabViewController {
     private let processesVC = ProcessesViewController()
     private let servicesVC = ServicesViewController()
     private let networkVC = NetworkViewController()
+    private let storageVC = StorageViewController()
 
     init(powerVC: BuoyViewController) {
         self.powerVC = powerVC
@@ -29,6 +30,7 @@ final class BuoyMainViewController: NSTabViewController {
         addTab(processesVC, label: "Processes", symbol: "list.bullet.rectangle")
         addTab(servicesVC, label: "Services", symbol: "gearshape.2")
         addTab(networkVC, label: "Network", symbol: "network")
+        addTab(storageVC, label: "Storage", symbol: "internaldrive")
         systemVC.coordinator = coordinator
 
         let consumers: [DashboardConsumer] = [overviewVC, systemVC, processesVC, servicesVC, networkVC]

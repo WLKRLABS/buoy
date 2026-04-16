@@ -3,6 +3,10 @@ import Foundation
 
 public enum DiskMetricsCollector {
     public static func sample(mountPoint: String = "/") -> DiskSnapshot {
+        if let snapshot = sampleUsingVolumeMetadata(mountPoint: mountPoint) {
+            return snapshot
+        }
+
         var stats = statfs()
         guard statfs(mountPoint, &stats) == 0 else {
             return .empty
@@ -24,6 +28,34 @@ public enum DiskMetricsCollector {
             usedGB: usedGB,
             availableGB: availGB,
             usagePercent: percent,
+            mountPoint: mountPoint
+        )
+    }
+
+    private static func sampleUsingVolumeMetadata(mountPoint: String) -> DiskSnapshot? {
+        let url = URL(fileURLWithPath: mountPoint, isDirectory: true)
+        let keys: Set<URLResourceKey> = [
+            .volumeTotalCapacityKey,
+            .volumeAvailableCapacityKey
+        ]
+
+        guard let values = try? url.resourceValues(forKeys: keys),
+              let total = values.volumeTotalCapacity,
+              let available = values.volumeAvailableCapacity,
+              total > 0 else {
+            return nil
+        }
+
+        let totalBytes = Int64(total)
+        let availableBytes = Int64(max(0, available))
+        let usedBytes = max(0, totalBytes - availableBytes)
+        let gb = 1_073_741_824.0
+
+        return DiskSnapshot(
+            totalGB: Double(totalBytes) / gb,
+            usedGB: Double(usedBytes) / gb,
+            availableGB: Double(availableBytes) / gb,
+            usagePercent: Double(usedBytes) / Double(totalBytes) * 100.0,
             mountPoint: mountPoint
         )
     }

@@ -103,4 +103,24 @@ enum DashboardFormatters {
         fmt.dateFormat = "HH:mm:ss"
         return fmt.string(from: date)
     }
+
+    static func bytes(_ value: Int64?) -> String {
+        guard let value else { return "—" }
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        formatter.allowedUnits = [.useMB, .useGB, .useTB]
+        formatter.isAdaptive = true
+        return formatter.string(fromByteCount: value)
+    }
+
+    static func abbreviatedPath(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        if path == home {
+            return "~"
+        }
+        if path.hasPrefix(home + "/") {
+            return "~" + path.dropFirst(home.count)
+        }
+        return path
+    }
 }

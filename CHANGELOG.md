@@ -4,7 +4,14 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+### Added
+
+- Added a dedicated Storage dashboard tab with a deeper disk scan, largest files and folders table, cleanup-focused filters, and a breakdown graph that makes hidden or system-heavy usage easier to spot.
+- Added opt-in Storage access controls for protected folders plus saved-location bookmarks for extra folders and drives so scans do not spam permission prompts and your grants persist across app relaunches.
+
+### Changed
+
+- Changed the Storage tab to open from a persisted snapshot instantly, refresh folder summaries in the background when data is stale, and reserve the full largest-files pass for the manual `Deep Scan` action.
 
 ## [0.2.0] - 2026-04-15
 

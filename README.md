@@ -69,6 +69,10 @@ It exposes:
 - Poll interval slider
 - Appearance picker
 - Apply, Turn Off, Sleep Display, and Refresh actions
+- Overview, System, Processes, Services, Network, and Storage dashboard tabs
+- A Storage page that scans large folders, large files, caches, backups, and developer data with filters and a usage breakdown graph
+- Cached Storage snapshots that make tab open instant, with background summary refreshes and an explicit `Deep Scan` for the full largest-files pass
+- Opt-in storage access toggles for protected folders plus saved bookmarks for extra folders and drives so scans can stay quiet and persist across app relaunches
 
 Privileged writes run through the standard macOS admin prompt. Status reads come from the CLI directly.
 

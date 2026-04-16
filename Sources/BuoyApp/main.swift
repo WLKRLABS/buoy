@@ -74,9 +74,16 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         controller?.showWindow(nil)
+        controller?.ensureWindowFitsVisibleFrame()
         controller?.window?.makeKeyAndOrderFront(nil)
         controller?.window?.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [weak self] in
+            self?.controller?.ensureWindowFitsVisibleFrame()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.controller?.ensureWindowFitsVisibleFrame()
+        }
     }
 
     private func applyAppIcon() {
@@ -91,31 +98,88 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-final class BuoyWindowController: NSWindowController {
+final class BuoyWindowController: NSWindowController, NSWindowDelegate {
     private let bridge = ShellBridge()
     private let contentController = BuoyViewController()
     private lazy var mainController = BuoyMainViewController(powerVC: contentController)
 
     init() {
+        let initialFrame = Self.initialWindowFrame()
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1140, height: 760),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: initialFrame,
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = buoyProductName
+        window.setFrame(initialFrame, display: false)
         window.center()
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.disableSnapshotRestoration()
+        window.minSize = NSSize(width: 920, height: 620)
         super.init(window: window)
         contentController.bridge = bridge
+        window.delegate = self
         window.contentViewController = mainController
+        window.setFrame(initialFrame, display: false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private static func initialWindowFrame() -> NSRect {
+        let preferred = NSSize(width: 1080, height: 680)
+        guard let screen = NSScreen.main else {
+            return NSRect(origin: .zero, size: preferred)
+        }
+
+        let visible = screen.visibleFrame
+        let width = min(preferred.width, max(920, visible.width - 48))
+        let height = min(preferred.height, max(620, visible.height - 48))
+        let x = visible.midX - (width / 2)
+        let y = visible.midY - (height / 2)
+        return NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    func ensureWindowFitsVisibleFrame() {
+        guard let window else { return }
+        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? window.frame
+        let horizontalMargin: CGFloat = 48
+        let verticalMargin: CGFloat = 72
+        let maxWidth = max(window.minSize.width, visible.width - horizontalMargin)
+        let maxHeight = max(window.minSize.height, visible.height - verticalMargin)
+
+        var frame = window.frame
+        frame.size.width = min(frame.width, maxWidth)
+        frame.size.height = min(frame.height, maxHeight)
+
+        if frame.maxX > visible.maxX {
+            frame.origin.x = visible.maxX - frame.width
+        }
+        if frame.minX < visible.minX {
+            frame.origin.x = visible.minX
+        }
+        if frame.maxY > visible.maxY {
+            frame.origin.y = visible.maxY - frame.height
+        }
+        if frame.minY < visible.minY {
+            frame.origin.y = visible.minY
+        }
+
+        if !window.frame.equalTo(frame) {
+            window.setFrame(frame, display: true, animate: false)
+        }
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        ensureWindowFitsVisibleFrame()
+    }
+
+    func windowDidChangeScreen(_ notification: Notification) {
+        ensureWindowFitsVisibleFrame()
     }
 }
 
