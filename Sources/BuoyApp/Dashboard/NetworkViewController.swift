@@ -50,10 +50,10 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
     }
 
     private func buildLayout() {
-        summaryLabel.font = .systemFont(ofSize: 12)
-        summaryLabel.textColor = .secondaryLabelColor
-        timestampLabel.font = .systemFont(ofSize: 11)
-        timestampLabel.textColor = .secondaryLabelColor
+        summaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        summaryLabel.textColor = BuoyChrome.secondaryTextColor
+        timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        timestampLabel.textColor = BuoyChrome.secondaryTextColor
 
         portsTable.tableView.delegate = self
         portsTable.tableView.dataSource = self
@@ -81,15 +81,15 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20),
-            listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 240),
-            interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220)
+            listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 170),
+            interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 160)
         ])
     }
 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {
         self.snapshot = snapshot
-        summaryLabel.stringValue = "\(snapshot.network.listeningPorts.count) listeners • \(snapshot.network.interfaces.count) interfaces"
-        timestampLabel.stringValue = "Last updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
+        summaryLabel.stringValue = "\(snapshot.network.listeningPorts.count) LISTENERS • \(snapshot.network.interfaces.count) INTERFACES"
+        timestampLabel.stringValue = "LAST UPDATED \(DashboardFormatters.timestamp(snapshot.capturedAt))"
         portsTable.tableView.reloadData()
         interfacesTable.tableView.reloadData()
     }
@@ -112,6 +112,7 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
             let item = snapshot.network.interfaces[row]
             cell.textField?.stringValue = interfaceValue(item, column: column.identifier)
         }
+
         return cell
     }
 
@@ -141,17 +142,22 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
     private func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
+
         let textField = NSTextField(labelWithString: "")
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.lineBreakMode = .byTruncatingMiddle
         textField.font = .systemFont(ofSize: 12)
+        textField.textColor = BuoyChrome.primaryTextColor
+
         cell.addSubview(textField)
         cell.textField = textField
+
         NSLayoutConstraint.activate([
             textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
             textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
             textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
+
         return cell
     }
 }

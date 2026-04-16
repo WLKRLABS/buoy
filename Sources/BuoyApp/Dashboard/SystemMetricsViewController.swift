@@ -37,21 +37,24 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         textView.isSelectable = true
         textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         textView.drawsBackground = false
+        textView.textColor = BuoyChrome.primaryTextColor
 
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
-        scroll.borderType = .bezelBorder
+        scroll.borderType = .noBorder
+        scroll.drawsBackground = false
         scroll.documentView = textView
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
-        let refreshLabel = NSTextField(labelWithString: "Refresh rate:")
-        refreshLabel.font = NSFont.systemFont(ofSize: 12)
+        let refreshLabel = NSTextField(labelWithString: "REFRESH RATE")
+        refreshLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        refreshLabel.textColor = BuoyChrome.secondaryTextColor
         intervalPopup.addItems(withTitles: RefreshInterval.allCases.map { $0.label })
         intervalPopup.target = self
         intervalPopup.action = #selector(intervalChanged)
 
-        timestampLabel.font = NSFont.systemFont(ofSize: 11)
-        timestampLabel.textColor = .secondaryLabelColor
+        timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        timestampLabel.textColor = BuoyChrome.secondaryTextColor
 
         let controls = NSStackView(views: [refreshLabel, intervalPopup, NSView(), timestampLabel])
         controls.orientation = .horizontal
@@ -59,7 +62,22 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         controls.spacing = 8
         controls.translatesAutoresizingMaskIntoConstraints = false
 
-        let stack = NSStackView(views: [controls, scroll])
+        let controlsSurface = NSView()
+        controlsSurface.applyBuoySurface(cornerRadius: 14, fillColor: BuoyChrome.elevatedBackgroundColor)
+        controlsSurface.translatesAutoresizingMaskIntoConstraints = false
+        controlsSurface.addSubview(controls)
+
+        NSLayoutConstraint.activate([
+            controls.leadingAnchor.constraint(equalTo: controlsSurface.leadingAnchor, constant: 14),
+            controls.trailingAnchor.constraint(equalTo: controlsSurface.trailingAnchor, constant: -14),
+            controls.topAnchor.constraint(equalTo: controlsSurface.topAnchor, constant: 14),
+            controls.bottomAnchor.constraint(equalTo: controlsSurface.bottomAnchor, constant: -14)
+        ])
+
+        let textSection = DashboardSectionView(title: "Raw System Readout")
+        textSection.pinContent(scroll)
+
+        let stack = NSStackView(views: [controlsSurface, textSection])
         stack.orientation = .vertical
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -70,7 +88,7 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20),
-            scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 360)
+            textSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 320)
         ])
     }
 
@@ -144,7 +162,7 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
 
         let fmt = DateFormatter()
         fmt.dateFormat = "HH:mm:ss"
-        timestampLabel.stringValue = "Last updated \(fmt.string(from: snapshot.capturedAt))"
+        timestampLabel.stringValue = "LAST UPDATED \(fmt.string(from: snapshot.capturedAt))"
     }
 
     private func chargingStatus(for power: PowerSnapshot) -> String {

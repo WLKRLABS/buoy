@@ -55,27 +55,49 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
         userFilter.target = self
         userFilter.action = #selector(filtersChanged)
 
-        summaryLabel.font = .systemFont(ofSize: 12)
-        summaryLabel.textColor = .secondaryLabelColor
-        timestampLabel.font = .systemFont(ofSize: 11)
-        timestampLabel.textColor = .secondaryLabelColor
+        summaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        summaryLabel.textColor = BuoyChrome.secondaryTextColor
+        timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        timestampLabel.textColor = BuoyChrome.secondaryTextColor
 
         table.tableView.delegate = self
         table.tableView.dataSource = self
 
-        let controls = NSStackView(views: [
-            label("Search"), searchField,
-            label("User"), userFilter,
-            label("Sort"), sortPopup,
-            NSView(),
-            summaryLabel,
-            timestampLabel
-        ])
-        controls.orientation = .horizontal
-        controls.alignment = .centerY
-        controls.spacing = 8
+        let searchRow = NSStackView(views: [label("SEARCH"), searchField])
+        searchRow.orientation = .horizontal
+        searchRow.alignment = .centerY
+        searchRow.spacing = 8
 
-        let stack = NSStackView(views: [controls, table])
+        let filtersRow = NSStackView(views: [label("USER"), userFilter, label("SORT"), sortPopup, NSView()])
+        filtersRow.orientation = .horizontal
+        filtersRow.alignment = .centerY
+        filtersRow.spacing = 8
+
+        let metaRow = NSStackView(views: [summaryLabel, NSView(), timestampLabel])
+        metaRow.orientation = .horizontal
+        metaRow.alignment = .centerY
+
+        let controlsStack = NSStackView(views: [searchRow, filtersRow, metaRow])
+        controlsStack.orientation = .vertical
+        controlsStack.spacing = 10
+
+        let controlsSurface = NSView()
+        controlsSurface.applyBuoySurface(cornerRadius: 14, fillColor: BuoyChrome.elevatedBackgroundColor)
+        controlsSurface.translatesAutoresizingMaskIntoConstraints = false
+        controlsSurface.addSubview(controlsStack)
+        controlsStack.translatesAutoresizingMaskIntoConstraints = false
+
+        NSLayoutConstraint.activate([
+            controlsStack.leadingAnchor.constraint(equalTo: controlsSurface.leadingAnchor, constant: 14),
+            controlsStack.trailingAnchor.constraint(equalTo: controlsSurface.trailingAnchor, constant: -14),
+            controlsStack.topAnchor.constraint(equalTo: controlsSurface.topAnchor, constant: 14),
+            controlsStack.bottomAnchor.constraint(equalTo: controlsSurface.bottomAnchor, constant: -14)
+        ])
+
+        let tableSection = DashboardSectionView(title: "Active Processes")
+        tableSection.pinContent(table)
+
+        let stack = NSStackView(views: [controlsSurface, tableSection])
         stack.orientation = .vertical
         stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -91,8 +113,8 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
 
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .systemFont(ofSize: 12)
-        field.textColor = .secondaryLabelColor
+        field.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        field.textColor = BuoyChrome.secondaryTextColor
         return field
     }
 
@@ -100,7 +122,7 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
         self.snapshot = snapshot
         refreshUserChoices()
         applyFilters()
-        timestampLabel.stringValue = "Last updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
+        timestampLabel.stringValue = "LAST UPDATED \(DashboardFormatters.timestamp(snapshot.capturedAt))"
     }
 
     private func refreshUserChoices() {
@@ -153,7 +175,7 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
             }
         }
 
-        summaryLabel.stringValue = "\(visibleRows.count) of \(snapshot.processes.count) processes"
+        summaryLabel.stringValue = "\(visibleRows.count) OF \(snapshot.processes.count) PROCESSES"
         table.tableView.reloadData()
     }
 
@@ -187,21 +209,26 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
     private func makeCell(identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
         let cell = NSTableCellView()
         cell.identifier = identifier
+
         let textField = NSTextField(labelWithString: "")
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.lineBreakMode = .byTruncatingMiddle
+        textField.textColor = BuoyChrome.primaryTextColor
         if identifier == Column.pid || identifier == Column.ppid || identifier == Column.cpu || identifier == Column.memMB || identifier == Column.memPct {
             textField.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         } else {
             textField.font = .systemFont(ofSize: 12)
         }
+
         cell.addSubview(textField)
         cell.textField = textField
+
         NSLayoutConstraint.activate([
             textField.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 6),
             textField.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -6),
             textField.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
         ])
+
         return cell
     }
 }

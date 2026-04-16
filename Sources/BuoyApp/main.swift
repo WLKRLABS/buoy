@@ -35,6 +35,7 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         applyAppIcon()
+        configureMainMenu()
         showMainWindow()
 
         // LaunchServices/AppKit can finish window restoration after didFinishLaunching.
@@ -58,7 +59,7 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        true
+        false
     }
 
     @objc
@@ -96,6 +97,92 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.applicationIconImage = iconImage
     }
+
+    private func configureMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        appMenu.addItem(withTitle: "About \(buoyProductName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+
+        let quitItem = NSMenuItem(title: "Quit \(buoyProductName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem.keyEquivalentModifierMask = [.command]
+        appMenu.addItem(quitItem)
+
+        let fileMenuItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "File")
+        fileMenuItem.submenu = fileMenu
+        mainMenu.addItem(fileMenuItem)
+
+        let closeItem = NSMenuItem(title: "Close Window", action: #selector(closeMainWindow(_:)), keyEquivalent: "w")
+        closeItem.keyEquivalentModifierMask = [.command]
+        closeItem.target = self
+        fileMenu.addItem(closeItem)
+
+        let viewMenuItem = NSMenuItem()
+        let viewMenu = NSMenu(title: "View")
+        viewMenuItem.submenu = viewMenu
+        mainMenu.addItem(viewMenuItem)
+
+        for section in BuoyDashboardSection.allCases {
+            let item = NSMenuItem(title: section.title, action: #selector(selectSectionFromMenu(_:)), keyEquivalent: "\(section.rawValue + 1)")
+            item.keyEquivalentModifierMask = [.command]
+            item.tag = section.rawValue
+            item.target = self
+            viewMenu.addItem(item)
+        }
+
+        viewMenu.addItem(.separator())
+
+        let previousItem = NSMenuItem(title: "Previous Section", action: #selector(selectPreviousSection(_:)), keyEquivalent: "[")
+        previousItem.keyEquivalentModifierMask = [.command]
+        previousItem.target = self
+        viewMenu.addItem(previousItem)
+
+        let nextItem = NSMenuItem(title: "Next Section", action: #selector(selectNextSection(_:)), keyEquivalent: "]")
+        nextItem.keyEquivalentModifierMask = [.command]
+        nextItem.target = self
+        viewMenu.addItem(nextItem)
+
+        NSApp.mainMenu = mainMenu
+    }
+
+    @objc
+    private func closeMainWindow(_ sender: Any?) {
+        controller?.window?.performClose(sender)
+    }
+
+    @objc
+    private func selectSectionFromMenu(_ sender: NSMenuItem) {
+        guard let section = BuoyDashboardSection(rawValue: sender.tag) else { return }
+        if controller == nil {
+            controller = BuoyWindowController()
+        }
+        controller?.showWindow(nil)
+        controller?.selectSection(section)
+    }
+
+    @objc
+    private func selectNextSection(_ sender: Any?) {
+        if controller == nil {
+            controller = BuoyWindowController()
+        }
+        showMainWindow()
+        controller?.selectNextSection()
+    }
+
+    @objc
+    private func selectPreviousSection(_ sender: Any?) {
+        if controller == nil {
+            controller = BuoyWindowController()
+        }
+        showMainWindow()
+        controller?.selectPreviousSection()
+    }
 }
 
 final class BuoyWindowController: NSWindowController, NSWindowDelegate {
@@ -119,7 +206,8 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.disableSnapshotRestoration()
-        window.minSize = NSSize(width: 920, height: 620)
+        window.minSize = NSSize(width: 720, height: 520)
+        window.backgroundColor = BuoyChrome.windowBackgroundColor
         super.init(window: window)
         contentController.bridge = bridge
         window.delegate = self
@@ -133,17 +221,29 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private static func initialWindowFrame() -> NSRect {
-        let preferred = NSSize(width: 1080, height: 680)
+        let preferred = NSSize(width: 1180, height: 760)
         guard let screen = NSScreen.main else {
             return NSRect(origin: .zero, size: preferred)
         }
 
         let visible = screen.visibleFrame
-        let width = min(preferred.width, max(920, visible.width - 48))
-        let height = min(preferred.height, max(620, visible.height - 48))
+        let width = min(preferred.width, max(720, visible.width - 48))
+        let height = min(preferred.height, max(520, visible.height - 48))
         let x = visible.midX - (width / 2)
         let y = visible.midY - (height / 2)
         return NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    func selectSection(_ section: BuoyDashboardSection) {
+        mainController.selectSection(section)
+    }
+
+    func selectNextSection() {
+        mainController.selectNextSection()
+    }
+
+    func selectPreviousSection() {
+        mainController.selectPreviousSection()
     }
 
     func ensureWindowFitsVisibleFrame() {
@@ -247,7 +347,7 @@ final class BuoyViewController: NSViewController {
     private let displayBehaviorValueLabel = NSTextField(labelWithString: "System default")
     private let lidBehaviorValueLabel = NSTextField(labelWithString: "Normal sleep")
     private let statusLabel = NSTextField(wrappingLabelWithString: "Loading status...")
-    private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy uses the CLI under the hood, so every action stays scriptable.")
+    private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy stays scriptable through the CLI. Use ⌘1–7 to move between sections without leaving the keyboard.")
 
     private var currentStatus: BuoyStatus?
     private var isBusy = false {
@@ -274,10 +374,14 @@ final class BuoyViewController: NSViewController {
     }
 
     private func configureAppearance() {
-        titleLabel.font = NSFont.systemFont(ofSize: 28, weight: .semibold)
+        titleLabel.font = NSFont.systemFont(ofSize: 30, weight: .bold)
+        titleLabel.textColor = BuoyChrome.primaryTextColor
         subtitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
+        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
 
-        footerLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
+        footerLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        footerLabel.maximumNumberOfLines = 0
+        footerLabel.textColor = BuoyChrome.secondaryTextColor
 
         behaviorTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
         behaviorDetailLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
@@ -300,17 +404,40 @@ final class BuoyViewController: NSViewController {
     }
 
     private func buildLayout() {
+        let scrollView = NSScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.autohidesScrollers = true
+        view.addSubview(scrollView)
+
+        let documentView = NSView()
+        documentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.documentView = documentView
+
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        documentView.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -24)
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            documentView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
+            documentView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            documentView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor),
+            documentView.bottomAnchor.constraint(equalTo: scrollView.contentView.bottomAnchor),
+            documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: documentView.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: documentView.trailingAnchor, constant: -24),
+            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -24),
+            stack.centerXAnchor.constraint(equalTo: documentView.centerXAnchor),
+            stack.widthAnchor.constraint(lessThanOrEqualToConstant: 920),
+            stack.widthAnchor.constraint(lessThanOrEqualTo: documentView.widthAnchor, constant: -48)
         ])
 
         let headerStack = NSStackView(views: [titleLabel, subtitleLabel])
@@ -378,7 +505,7 @@ final class BuoyViewController: NSViewController {
 
     private func makePanel(_ box: NSBox) -> NSBox {
         box.boxType = .custom
-        box.cornerRadius = 14
+        box.cornerRadius = 16
         box.borderWidth = 1
         box.contentViewMargins = NSSize(width: 0, height: 0)
         return box
@@ -393,7 +520,8 @@ final class BuoyViewController: NSViewController {
 
     private func makeButton(title: String, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
+        button.bezelStyle = .recessed
+        button.contentTintColor = title == "Apply" ? BuoyChrome.accentColor : BuoyChrome.primaryTextColor
         return button
     }
 
@@ -471,11 +599,9 @@ final class BuoyViewController: NSViewController {
     }
 
     private func makeButtonRow() -> NSView {
-        let stack = NSStackView(views: [applyButton, turnOffButton, screenOffButton, NSView(), refreshButton])
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.spacing = 10
-        return stack
+        let grid = AdaptiveGridView(minColumnWidth: 150, maxColumns: 4, rowSpacing: 10, columnSpacing: 10)
+        grid.setItems([applyButton, turnOffButton, screenOffButton, refreshButton])
+        return grid
     }
 
     private func updateSliderLabels() {
@@ -529,33 +655,27 @@ final class BuoyViewController: NSViewController {
     }
 
     private func refreshColorPalette() {
-        let backgroundColor = NSColor.windowBackgroundColor
-        let panelColor = NSColor.controlBackgroundColor
-        let borderColor = NSColor.separatorColor
-        let primaryTextColor = NSColor.labelColor
-        let secondaryTextColor = NSColor.secondaryLabelColor
+        view.layer?.backgroundColor = .clear
+        controlsPanel.fillColor = BuoyChrome.panelBackgroundColor
+        controlsPanel.borderColor = BuoyChrome.borderColor
+        behaviorPanel.fillColor = BuoyChrome.elevatedBackgroundColor
+        behaviorPanel.borderColor = BuoyChrome.borderColor
+        statusPanel.fillColor = BuoyChrome.panelBackgroundColor
+        statusPanel.borderColor = BuoyChrome.borderColor
 
-        view.layer?.backgroundColor = backgroundColor.cgColor
-        controlsPanel.fillColor = panelColor
-        controlsPanel.borderColor = borderColor
-        behaviorPanel.fillColor = panelColor.blended(withFraction: 0.18, of: NSColor.controlAccentColor) ?? panelColor
-        behaviorPanel.borderColor = borderColor
-        statusPanel.fillColor = panelColor
-        statusPanel.borderColor = borderColor
-
-        titleLabel.textColor = primaryTextColor
-        subtitleLabel.textColor = secondaryTextColor
-        footerLabel.textColor = secondaryTextColor
-        behaviorTitleLabel.textColor = primaryTextColor
-        behaviorDetailLabel.textColor = secondaryTextColor
+        titleLabel.textColor = BuoyChrome.primaryTextColor
+        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
+        footerLabel.textColor = BuoyChrome.secondaryTextColor
+        behaviorTitleLabel.textColor = BuoyChrome.primaryTextColor
+        behaviorDetailLabel.textColor = BuoyChrome.secondaryTextColor
         [currentBehaviorValueLabel, computerBehaviorValueLabel, displayBehaviorValueLabel, lidBehaviorValueLabel].forEach {
-            $0.textColor = primaryTextColor
+            $0.textColor = BuoyChrome.primaryTextColor
         }
-        behaviorSymbolView.contentTintColor = enabledSwitch.state == .on ? .controlAccentColor : secondaryTextColor
-        statusLabel.textColor = primaryTextColor
-        displaySleepValue.textColor = secondaryTextColor
-        batteryValue.textColor = secondaryTextColor
-        pollValue.textColor = secondaryTextColor
+        behaviorSymbolView.contentTintColor = enabledSwitch.state == .on ? BuoyChrome.accentColor : BuoyChrome.secondaryTextColor
+        statusLabel.textColor = BuoyChrome.primaryTextColor
+        displaySleepValue.textColor = BuoyChrome.secondaryTextColor
+        batteryValue.textColor = BuoyChrome.secondaryTextColor
+        pollValue.textColor = BuoyChrome.secondaryTextColor
     }
 
     private func updateBehaviorSummary() {

@@ -89,14 +89,14 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         sortPopup.addItems(withTitles: StorageSortKey.allCases.map(\.rawValue))
         sortPopup.selectItem(withTitle: StorageSortKey.size.rawValue)
 
-        summaryLabel.font = .systemFont(ofSize: 12)
-        summaryLabel.textColor = .secondaryLabelColor
-        stateLabel.font = .systemFont(ofSize: 11, weight: .semibold)
-        stateLabel.textColor = .secondaryLabelColor
-        timestampLabel.font = .systemFont(ofSize: 11)
-        timestampLabel.textColor = .secondaryLabelColor
+        summaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        summaryLabel.textColor = BuoyChrome.secondaryTextColor
+        stateLabel.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        stateLabel.textColor = BuoyChrome.secondaryTextColor
+        timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        timestampLabel.textColor = BuoyChrome.secondaryTextColor
         statusLabel.font = .systemFont(ofSize: 12)
-        statusLabel.textColor = .secondaryLabelColor
+        statusLabel.textColor = BuoyChrome.secondaryTextColor
         statusLabel.maximumNumberOfLines = 0
         breakdownLabel.maximumNumberOfLines = 0
         highlightsLabel.maximumNumberOfLines = 0
@@ -104,22 +104,26 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         breakdownLabel.font = .systemFont(ofSize: 12)
         highlightsLabel.font = .systemFont(ofSize: 12)
         accessSummaryLabel.font = .systemFont(ofSize: 12)
-        highlightsLabel.textColor = .secondaryLabelColor
-        accessSummaryLabel.textColor = .secondaryLabelColor
+        breakdownLabel.textColor = BuoyChrome.primaryTextColor
+        highlightsLabel.textColor = BuoyChrome.secondaryTextColor
+        accessSummaryLabel.textColor = BuoyChrome.secondaryTextColor
 
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
+
+        refreshButton.bezelStyle = .recessed
+        refreshButton.contentTintColor = BuoyChrome.accentColor
+        revealButton.bezelStyle = .recessed
+        revealButton.contentTintColor = BuoyChrome.primaryTextColor
 
         table.tableView.delegate = self
         table.tableView.dataSource = self
         table.tableView.target = self
         table.tableView.doubleAction = #selector(revealSelection)
 
-        let cards = NSStackView(views: [usedCard, explainedCard, cleanupCard, systemCard])
-        cards.orientation = .horizontal
-        cards.distribution = .fillEqually
-        cards.spacing = 12
+        let cards = AdaptiveGridView(minColumnWidth: 220, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
+        cards.setItems([usedCard, explainedCard, cleanupCard, systemCard])
 
         let breakdownStack = NSStackView(views: [breakdownView, breakdownLabel, highlightsLabel])
         breakdownStack.orientation = .vertical
@@ -131,28 +135,22 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
         let accessSection = buildAccessSection()
 
-        let controlsTop = NSStackView(views: [
-            label("Search"), searchField,
-            label("Scope"), scopePopup,
-            label("Kind"), kindPopup,
-            label("Sort"), sortPopup,
-            refreshButton,
-            revealButton,
-            NSView(),
-            spinner,
-            stateLabel,
-            timestampLabel
-        ])
-        controlsTop.orientation = .horizontal
-        controlsTop.alignment = .centerY
-        controlsTop.spacing = 8
+        let searchRow = NSStackView(views: [label("SEARCH"), searchField, label("SCOPE"), scopePopup])
+        searchRow.orientation = .horizontal
+        searchRow.alignment = .centerY
+        searchRow.spacing = 8
 
-        let controlsBottom = NSStackView(views: [statusLabel, NSView(), summaryLabel])
-        controlsBottom.orientation = .horizontal
-        controlsBottom.alignment = .centerY
-        controlsBottom.spacing = 12
+        let filterRow = NSStackView(views: [label("KIND"), kindPopup, label("SORT"), sortPopup, refreshButton, revealButton, NSView()])
+        filterRow.orientation = .horizontal
+        filterRow.alignment = .centerY
+        filterRow.spacing = 8
 
-        let tableStack = NSStackView(views: [controlsTop, controlsBottom, table])
+        let scanRow = NSStackView(views: [spinner, stateLabel, timestampLabel, NSView(), summaryLabel])
+        scanRow.orientation = .horizontal
+        scanRow.alignment = .centerY
+        scanRow.spacing = 8
+
+        let tableStack = NSStackView(views: [searchRow, filterRow, scanRow, statusLabel, table])
         tableStack.orientation = .vertical
         tableStack.spacing = 10
 
@@ -188,7 +186,6 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             stack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -20),
             stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
             stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -20),
-            cards.heightAnchor.constraint(equalToConstant: 100),
             accessSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
             itemsSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 280)
         ])
@@ -208,7 +205,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
             let status = NSTextField(labelWithString: "")
             status.font = .systemFont(ofSize: 11)
-            status.textColor = .secondaryLabelColor
+            status.textColor = BuoyChrome.secondaryTextColor
             status.lineBreakMode = .byTruncatingMiddle
             protectedStatusLabels[scope] = status
 
@@ -218,10 +215,11 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
             let title = NSTextField(labelWithString: scope.title)
             title.font = .systemFont(ofSize: 12, weight: .semibold)
+            title.textColor = BuoyChrome.primaryTextColor
 
             let detail = NSTextField(wrappingLabelWithString: scope.note)
             detail.font = .systemFont(ofSize: 11)
-            detail.textColor = .secondaryLabelColor
+            detail.textColor = BuoyChrome.secondaryTextColor
             detail.maximumNumberOfLines = 0
 
             let labels = NSStackView(views: [title, detail, status])
@@ -240,14 +238,15 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         customLocationsButton.target = self
         customLocationsButton.action = #selector(chooseCustomLocationsPressed)
         customLocationsStatusLabel.font = .systemFont(ofSize: 11)
-        customLocationsStatusLabel.textColor = .secondaryLabelColor
+        customLocationsStatusLabel.textColor = BuoyChrome.secondaryTextColor
         customLocationsStatusLabel.lineBreakMode = .byTruncatingMiddle
 
         let customTitle = NSTextField(labelWithString: "Saved Drives & Folders")
         customTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        customTitle.textColor = BuoyChrome.primaryTextColor
         let customDetail = NSTextField(wrappingLabelWithString: "Choose extra locations like external drives. Buoy stores bookmarks and only scans them when this switch is on.")
         customDetail.font = .systemFont(ofSize: 11)
-        customDetail.textColor = .secondaryLabelColor
+        customDetail.textColor = BuoyChrome.secondaryTextColor
         customDetail.maximumNumberOfLines = 0
         let customLabels = NSStackView(views: [customTitle, customDetail, customLocationsStatusLabel])
         customLabels.orientation = .vertical
@@ -283,8 +282,8 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .systemFont(ofSize: 12)
-        field.textColor = .secondaryLabelColor
+        field.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        field.textColor = BuoyChrome.secondaryTextColor
         return field
     }
 
@@ -931,17 +930,18 @@ private final class StorageSummaryCardView: NSBox {
     init(title: String) {
         super.init(frame: .zero)
         boxType = .custom
-        cornerRadius = 12
+        cornerRadius = 14
         borderWidth = 1
-        borderColor = .separatorColor
-        fillColor = .controlBackgroundColor
+        borderColor = BuoyChrome.borderColor
+        fillColor = BuoyChrome.panelBackgroundColor
 
         titleLabel.stringValue = title
-        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        titleLabel.textColor = .secondaryLabelColor
-        valueLabel.font = .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
+        titleLabel.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        titleLabel.textColor = BuoyChrome.secondaryTextColor
+        valueLabel.font = .monospacedDigitSystemFont(ofSize: 26, weight: .semibold)
+        valueLabel.textColor = BuoyChrome.primaryTextColor
         detailLabel.font = .systemFont(ofSize: 11)
-        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.textColor = BuoyChrome.secondaryTextColor
         detailLabel.maximumNumberOfLines = 0
 
         let stack = NSStackView(views: [titleLabel, valueLabel, detailLabel])
@@ -1035,7 +1035,7 @@ private final class StorageStackedBarView: NSView {
         super.draw(dirtyRect)
 
         let background = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
-        NSColor.separatorColor.withAlphaComponent(0.35).setFill()
+        BuoyChrome.gridColor.withAlphaComponent(0.55).setFill()
         background.fill()
 
         guard totalBytes > 0 else { return }
@@ -1065,7 +1065,7 @@ private final class StorageLegendChip: NSView {
 
         let label = NSTextField(labelWithString: "\(summary.category.rawValue) \(DashboardFormatters.bytes(summary.sizeBytes))")
         label.font = .systemFont(ofSize: 11)
-        label.textColor = .secondaryLabelColor
+        label.textColor = BuoyChrome.secondaryTextColor
 
         let stack = NSStackView(views: [swatch, label])
         stack.orientation = .horizontal
@@ -1090,29 +1090,29 @@ private enum StoragePalette {
     static func color(for category: StorageCategory) -> NSColor {
         switch category {
         case .applications:
-            return .systemOrange
+            return NSColor(hex: 0xC08A4A)
         case .users:
-            return .systemBlue
+            return NSColor(hex: 0x5A86B5)
         case .downloads:
-            return .systemGreen
+            return NSColor(hex: 0x6FA36A)
         case .documents:
-            return .systemTeal
+            return NSColor(hex: 0x5C9A92)
         case .media:
-            return .systemPink
+            return NSColor(hex: 0xB37378)
         case .developer:
-            return .systemYellow
+            return NSColor(hex: 0xBEA24C)
         case .backups:
-            return .systemPurple
+            return NSColor(hex: 0x8E77B1)
         case .caches:
-            return .systemMint
+            return NSColor(hex: 0x6C9F8A)
         case .library:
-            return .systemIndigo
+            return NSColor(hex: 0x6A78A6)
         case .system:
-            return .systemRed
+            return NSColor(hex: 0xB05C55)
         case .hidden:
-            return .systemGray
+            return NSColor(hex: 0x7C7A72)
         case .other:
-            return .secondaryLabelColor
+            return BuoyChrome.secondaryTextColor
         }
     }
 }
