@@ -158,6 +158,7 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
     private let tableView = NSTableView()
     private let sections = BuoyDashboardSection.navigationOrder
     private var selectedSection: BuoyDashboardSection = .overview
+    private var isApplyingProgrammaticSelection = false
 
     override func loadView() {
         let effectView = NSVisualEffectView()
@@ -176,7 +177,14 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
     func select(section: BuoyDashboardSection) {
         selectedSection = section
         guard isViewLoaded, let row = sections.firstIndex(of: section) else { return }
-        tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+
+        if tableView.selectedRow != row {
+            // NSTableView posts selection-change notifications for code-driven selects too.
+            isApplyingProgrammaticSelection = true
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            isApplyingProgrammaticSelection = false
+        }
+
         tableView.scrollRowToVisible(row)
         tableView.reloadData()
     }
@@ -263,6 +271,9 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
         guard row >= 0, row < sections.count else { return }
         let section = sections[row]
         selectedSection = section
+
+        guard !isApplyingProgrammaticSelection else { return }
+
         tableView.reloadData()
         delegate?.sidebarDidSelect(section: section)
     }

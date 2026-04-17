@@ -17,6 +17,7 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Fixed
 
+- Fixed a startup crash in the app shell where restoring or applying the current sidebar section could recurse until `Buoy.app` crashed on launch.
 - Fixed the app window and dashboard layouts so they hold up better at both smaller and larger sizes, including wrapped controls for dense tabs like Storage.
 - Fixed missing window and section navigation affordances by wiring `⌘W`, `⌘Q`, `⌘1` through `⌘7`, and section cycling commands into the native menu bar.
 - Fixed the Storage tab summary refresh so it uses a macOS-closer disk-used metric, normalizes protected-folder grants like `~` back to the intended Desktop/Documents/Downloads/Pictures folders, and avoids stalling on giant system roots.
