@@ -14,11 +14,13 @@ This changelog is intentionally lightweight. Each released version gets one shor
 - Changed the Storage tab to open from a persisted snapshot instantly, refresh folder summaries in the background when data is stale, and reserve the full largest-files pass for the manual `Deep Scan` action.
 - Reworked the Buoy app shell into a retro, keyboard-friendly control surface with a sidebar section navigator, explicit View menu shortcuts, and cleaner power/dashboard hierarchy.
 - Updated the dashboard panels, cards, and tables to use a more consistent utilitarian visual system instead of the previous mismatched default AppKit styling.
+- Reworked the Overview, Power, System, Processes, Services, Network, and Storage pages into a more structured stage-based layout so each tab reads in a clearer order and holds its composition more reliably as the window resizes.
 
 ### Fixed
 
 - Fixed a startup crash in the app shell where restoring or applying the current sidebar section could recurse until `Buoy.app` crashed on launch.
 - Fixed the app window and dashboard layouts so they hold up better at both smaller and larger sizes, including wrapped controls for dense tabs like Storage.
+- Fixed the sidebar section navigator so labels no longer clip against the right border at common window sizes.
 - Fixed missing window and section navigation affordances by wiring `⌘W`, `⌘Q`, `⌘1` through `⌘7`, and section cycling commands into the native menu bar.
 - Fixed the Storage tab summary refresh so it uses a macOS-closer disk-used metric, normalizes protected-folder grants like `~` back to the intended Desktop/Documents/Downloads/Pictures folders, and avoids stalling on giant system roots.
 - Fixed repeated Photos permission popups by making `Pictures` opt-in for storage scans and signing the built app bundle with a stable identifier so macOS can persist app permissions.

@@ -55,7 +55,7 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         summaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
         summaryLabel.textColor = BuoyChrome.secondaryTextColor
@@ -74,12 +74,13 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
         accessory.alignment = .centerY
         accessory.spacing = 12
 
-        let summarySection = DashboardSectionView(
+        let summaryStage = DashboardStageView(
+            sectionLabel: "Footprint",
             title: "Network Summary",
             subtitle: "Listening services, live interfaces, and the current addressing footprint.",
             accessory: accessory
         )
-        summarySection.pinContent(summaryGrid)
+        summaryStage.pinContent(summaryGrid)
 
         let listenersSection = DashboardSectionView(
             title: "Listening Services",
@@ -93,17 +94,25 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
         )
         interfacesSection.pinContent(interfacesTable)
 
-        let stack = NSStackView(views: [summarySection, listenersSection, interfacesSection])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
-        )
+        let inspectionGrid = AdaptiveGridView(minColumnWidth: 420, maxColumns: 2, rowSpacing: 14, columnSpacing: 14)
+        inspectionGrid.setItems([listenersSection, interfacesSection])
 
-        listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
-        interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
+        let inspectionStage = DashboardStageView(
+            sectionLabel: "Inspect",
+            title: "Live Surfaces",
+            subtitle: "Bound ports and interface detail stay grouped as the lower inspection layer."
+        )
+        inspectionStage.pinContent(inspectionGrid)
+
+        stack.addArrangedSubview(summaryStage)
+        stack.addArrangedSubview(inspectionStage)
+        [summaryStage, inspectionStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+
+        listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 260).isActive = true
+        interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 260).isActive = true
     }
 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {

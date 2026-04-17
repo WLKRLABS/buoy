@@ -412,52 +412,52 @@ final class BuoyViewController: NSViewController {
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         summaryGrid.setItems([modeCard, sourceCard, batteryCard, lidCard])
 
-        let summarySection = DashboardSectionView(
+        let currentStage = DashboardStageView(
+            sectionLabel: "Current",
             title: "Current Policy",
-            subtitle: "Live state, power source, battery floor, and closed-lid behavior."
+            subtitle: "Live state, power source, battery floor, and the effective sleep behavior."
         )
-        summarySection.pinContent(summaryGrid)
-
-        let configurationSection = DashboardSectionView(
-            title: "Configuration",
-            subtitle: "Apply changes explicitly to avoid repeated privilege prompts."
+        let currentBody = DashboardSplitColumnsView(
+            primary: summaryGrid,
+            secondary: makeBehaviorSummary(),
+            collapseWidth: 940,
+            preferredSecondaryWidth: 360
         )
-        configurationSection.pinContent(makeConfigurationView())
+        currentStage.pinContent(currentBody)
 
-        let behaviorSection = DashboardSectionView(
-            title: "Effective Behavior",
-            subtitle: "How the current configuration maps onto sleep and lid policy."
+        let controlsStage = DashboardStageView(
+            sectionLabel: "Controls",
+            title: "Configuration And Actions",
+            subtitle: "Set the policy deliberately, then apply or restore with explicit actions."
         )
-        behaviorSection.pinContent(makeBehaviorSummary())
-
-        detailGrid.setItems([configurationSection, behaviorSection])
-
-        let actionsSection = DashboardSectionView(
-            title: "Actions",
-            subtitle: "Routine controls stay grouped. The destructive action stays isolated."
+        let controlsBody = DashboardSplitColumnsView(
+            primary: makeConfigurationView(),
+            secondary: makeActionPanel(),
+            collapseWidth: 940,
+            preferredSecondaryWidth: 320
         )
-        actionsSection.pinContent(makeActionLayout())
+        controlsStage.pinContent(controlsBody)
 
-        let statusSection = DashboardSectionView(
+        let inspectStage = DashboardStageView(
+            sectionLabel: "Inspect",
             title: "CLI Readout",
-            subtitle: "Plain-text status from the installed command line tool."
+            subtitle: "Plain-text status from the installed command line tool remains available as the lower inspection layer."
         )
-        statusSection.pinContent(statusLabel)
+        inspectStage.pinContent(makeReadoutPanel())
 
-        let stack = NSStackView(views: [summarySection, detailGrid, actionsSection, statusSection, footerLabel])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
-        )
+        stack.addArrangedSubview(currentStage)
+        stack.addArrangedSubview(controlsStage)
+        stack.addArrangedSubview(inspectStage)
+        [currentStage, controlsStage, inspectStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
-        statusSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
+        inspectStage.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
     }
 
     private func wireActions() {
@@ -596,6 +596,40 @@ final class BuoyViewController: NSViewController {
         stack.orientation = .vertical
         stack.spacing = 10
         return stack
+    }
+
+    private func makeActionPanel() -> NSView {
+        let note = NSTextField(wrappingLabelWithString: "Apply commits the current sliders and toggles in one privileged step. Turn Off restores the saved normal AC sleep settings.")
+        note.font = .systemFont(ofSize: 12)
+        note.textColor = BuoyChrome.secondaryTextColor
+        note.maximumNumberOfLines = 0
+
+        let footer = NSTextField(wrappingLabelWithString: "Sleep Display stays non-destructive. Refresh rehydrates the state from the installed `buoy` binary.")
+        footer.font = .systemFont(ofSize: 11)
+        footer.textColor = BuoyChrome.secondaryTextColor
+        footer.maximumNumberOfLines = 0
+
+        let content = NSStackView(views: [makeActionLayout(), note, footer])
+        content.orientation = .vertical
+        content.spacing = 12
+
+        let panel = NSView()
+        panel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        panel.addSubview(content)
+        content.pinEdges(to: panel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
+        return panel
+    }
+
+    private func makeReadoutPanel() -> NSView {
+        let content = NSStackView(views: [statusLabel, footerLabel])
+        content.orientation = .vertical
+        content.spacing = 12
+
+        let panel = NSView()
+        panel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        panel.addSubview(content)
+        content.pinEdges(to: panel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
+        return panel
     }
 
     private func updateSliderLabels() {

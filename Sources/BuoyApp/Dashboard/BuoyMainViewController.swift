@@ -105,7 +105,6 @@ private final class SidebarSectionRowView: NSTableRowView {
 private final class SidebarSectionCellView: NSTableCellView {
     private let symbolView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
-    private let shortcutLabel = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -117,19 +116,17 @@ private final class SidebarSectionCellView: NSTableCellView {
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         titleLabel.textColor = BuoyChrome.primaryTextColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        shortcutLabel.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
-        shortcutLabel.textColor = BuoyChrome.tertiaryTextColor
-        shortcutLabel.alignment = .right
-
-        let stack = NSStackView(views: [symbolView, titleLabel, NSView(), shortcutLabel])
+        let stack = NSStackView(views: [symbolView, titleLabel, NSView()])
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = 10
+        stack.spacing = 12
         addSubview(stack)
         stack.pinEdges(
             to: self,
-            insets: NSEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
+            insets: NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 18)
         )
     }
 
@@ -141,8 +138,6 @@ private final class SidebarSectionCellView: NSTableCellView {
         symbolView.contentTintColor = selected ? BuoyChrome.accentColor : BuoyChrome.secondaryTextColor
         titleLabel.stringValue = section.title
         titleLabel.textColor = selected ? BuoyChrome.primaryTextColor : BuoyChrome.primaryTextColor
-        shortcutLabel.stringValue = section.hotkeyHint
-        shortcutLabel.textColor = selected ? BuoyChrome.accentColor : BuoyChrome.tertiaryTextColor
         toolTip = "\(section.title) \(section.hotkeyHint)"
     }
 }
@@ -213,8 +208,11 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
         headerStack.spacing = 4
 
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("section"))
-        column.width = 220
+        column.width = 240
+        column.minWidth = 180
+        column.resizingMask = .autoresizingMask
         tableView.addTableColumn(column)
+        tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         tableView.headerView = nil
         tableView.focusRingType = .none
         tableView.selectionHighlightStyle = .regular
@@ -239,6 +237,11 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
             to: view,
             insets: NSEdgeInsets(top: 20, left: 16, bottom: 16, right: 16)
         )
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        tableView.sizeLastColumnToFit()
     }
 
     func numberOfRows(in tableView: NSTableView) -> Int {
@@ -471,8 +474,8 @@ final class BuoyMainViewController: NSSplitViewController, BuoySidebarSelectionD
         sidebarController.delegate = self
 
         let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarController)
-        sidebarItem.minimumThickness = 210
-        sidebarItem.maximumThickness = 260
+        sidebarItem.minimumThickness = 232
+        sidebarItem.maximumThickness = 284
         sidebarItem.canCollapse = false
 
         let contentItem = NSSplitViewItem(viewController: hostController)

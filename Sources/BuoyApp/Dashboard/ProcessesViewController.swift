@@ -49,7 +49,7 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         searchField.placeholderString = "Search process name"
         searchField.delegate = self
@@ -72,12 +72,6 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
 
         summaryGrid.setItems([visibleCard, topCPUCard, topMemoryCard, userCard])
 
-        let summarySection = DashboardSectionView(
-            title: "Live Process Summary",
-            subtitle: "Current workload, top offenders, and operator scope."
-        )
-        summarySection.pinContent(summaryGrid)
-
         let searchRow = NSStackView(views: [label("Search"), searchField, label("User"), userFilter])
         searchRow.orientation = .horizontal
         searchRow.alignment = .centerY
@@ -92,28 +86,45 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
         controlsStack.orientation = .vertical
         controlsStack.spacing = 10
 
-        let filtersSection = DashboardSectionView(
-            title: "Filters",
-            subtitle: "Constrain the process list before drilling into the table."
-        )
-        filtersSection.pinContent(controlsStack)
+        let controlsPanel = NSView()
+        controlsPanel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        controlsPanel.addSubview(controlsStack)
+        controlsStack.pinEdges(to: controlsPanel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
 
-        let tableSection = DashboardSectionView(
+        let scopeAccessory = NSStackView(views: [summaryLabel, timestampLabel])
+        scopeAccessory.orientation = .horizontal
+        scopeAccessory.alignment = .centerY
+        scopeAccessory.spacing = 12
+
+        let scopeStage = DashboardStageView(
+            sectionLabel: "Load",
+            title: "Current Process Load",
+            subtitle: "What is noisy right now, plus the scope controls that shape the list below.",
+            accessory: scopeAccessory
+        )
+        let scopeBody = DashboardSplitColumnsView(
+            primary: summaryGrid,
+            secondary: controlsPanel,
+            collapseWidth: 940,
+            preferredSecondaryWidth: 360
+        )
+        scopeStage.pinContent(scopeBody)
+
+        let tableStage = DashboardStageView(
+            sectionLabel: "Inspect",
             title: "Process Table",
-            subtitle: "Sorted by live CPU, memory, PID, name, or user."
+            subtitle: "Sorted and filtered live process data for exact inspection."
         )
-        tableSection.pinContent(table)
+        tableStage.pinContent(table)
 
-        let stack = NSStackView(views: [summarySection, filtersSection, tableSection])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
-        )
+        stack.addArrangedSubview(scopeStage)
+        stack.addArrangedSubview(tableStage)
+        [scopeStage, tableStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
-        tableSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
+        tableStage.heightAnchor.constraint(greaterThanOrEqualToConstant: 420).isActive = true
     }
 
     private func label(_ text: String) -> NSTextField {

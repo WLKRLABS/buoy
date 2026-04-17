@@ -51,7 +51,7 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         searchField.placeholderString = "Search service or plist"
         searchField.delegate = self
@@ -81,12 +81,6 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
 
         summaryGrid.setItems([visibleCard, runningCard, disabledCard, thirdPartyCard])
 
-        let summarySection = DashboardSectionView(
-            title: "Service Summary",
-            subtitle: "Running state, boot behavior, and third-party footprint."
-        )
-        summarySection.pinContent(summaryGrid)
-
         let searchRow = NSStackView(views: [label("Search"), searchField, label("Status"), statusFilter])
         searchRow.orientation = .horizontal
         searchRow.alignment = .centerY
@@ -101,28 +95,45 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
         filterStack.orientation = .vertical
         filterStack.spacing = 10
 
-        let filtersSection = DashboardSectionView(
-            title: "Filters",
-            subtitle: "Narrow launchd services by state and install location."
-        )
-        filtersSection.pinContent(filterStack)
+        let filterPanel = NSView()
+        filterPanel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        filterPanel.addSubview(filterStack)
+        filterStack.pinEdges(to: filterPanel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
 
-        let tableSection = DashboardSectionView(
+        let scopeAccessory = NSStackView(views: [summaryLabel, timestampLabel])
+        scopeAccessory.orientation = .horizontal
+        scopeAccessory.alignment = .centerY
+        scopeAccessory.spacing = 12
+
+        let summaryStage = DashboardStageView(
+            sectionLabel: "Services",
+            title: "Launchd Footprint",
+            subtitle: "Current running state and the filters that narrow the service inventory before inspection.",
+            accessory: scopeAccessory
+        )
+        let summaryBody = DashboardSplitColumnsView(
+            primary: summaryGrid,
+            secondary: filterPanel,
+            collapseWidth: 940,
+            preferredSecondaryWidth: 380
+        )
+        summaryStage.pinContent(summaryBody)
+
+        let tableStage = DashboardStageView(
+            sectionLabel: "Inspect",
             title: "Launchd Table",
             subtitle: "Boot state, live process details, and on-disk plist location."
         )
-        tableSection.pinContent(table)
+        tableStage.pinContent(table)
 
-        let stack = NSStackView(views: [summarySection, filtersSection, tableSection])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
-        )
+        stack.addArrangedSubview(summaryStage)
+        stack.addArrangedSubview(tableStage)
+        [summaryStage, tableStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
-        tableSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
+        tableStage.heightAnchor.constraint(greaterThanOrEqualToConstant: 420).isActive = true
     }
 
     private func label(_ text: String) -> NSTextField {

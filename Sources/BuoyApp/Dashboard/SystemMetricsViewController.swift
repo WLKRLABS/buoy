@@ -5,11 +5,11 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     private let textView = NSTextView()
     private let timestampLabel = NSTextField(labelWithString: "—")
     private let intervalPopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let cpuCard = DashboardMetricCardView(title: "CPU")
-    private let memoryCard = DashboardMetricCardView(title: "Memory")
-    private let diskCard = DashboardMetricCardView(title: "Disk")
-    private let thermalCard = DashboardMetricCardView(title: "Thermal")
-    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
+    private let cpuRow = DashboardMetricRowView(title: "CPU")
+    private let memoryRow = DashboardMetricRowView(title: "Memory")
+    private let diskRow = DashboardMetricRowView(title: "Disk")
+    private let thermalRow = DashboardMetricRowView(title: "Thermal")
+    private let factsPanel = DashboardFactsPanelView(title: "Machine Facts")
     weak var coordinator: RefreshCoordinator?
 
     public override func loadView() {
@@ -38,7 +38,7 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         textView.isEditable = false
         textView.isSelectable = true
@@ -78,31 +78,44 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         accessory.alignment = .centerY
         accessory.spacing = 8
 
-        summaryGrid.setItems([cpuCard, memoryCard, diskCard, thermalCard])
+        let metricsStack = NSStackView(views: [cpuRow, memoryRow, diskRow, thermalRow])
+        metricsStack.orientation = .vertical
+        metricsStack.alignment = .width
+        metricsStack.spacing = 12
+        [cpuRow, memoryRow, diskRow, thermalRow].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: metricsStack.widthAnchor).isActive = true
+        }
 
-        let summarySection = DashboardSectionView(
-            title: "Live System Snapshot",
-            subtitle: "Core machine state with the active refresh cadence.",
+        let snapshotStage = DashboardStageView(
+            sectionLabel: "Snapshot",
+            title: "Current System State",
+            subtitle: "Exact machine readouts surfaced as a compact operator board.",
             accessory: accessory
         )
-        summarySection.pinContent(summaryGrid)
+        let snapshotBody = DashboardSplitColumnsView(
+            primary: metricsStack,
+            secondary: factsPanel,
+            collapseWidth: 860,
+            preferredSecondaryWidth: 320
+        )
+        snapshotStage.pinContent(snapshotBody)
 
-        let readoutSection = DashboardSectionView(
+        let readoutStage = DashboardStageView(
+            sectionLabel: "Inspect",
             title: "Raw Readout",
-            subtitle: "Dense operator view for exact CPU, memory, disk, power, and thermal values."
+            subtitle: "Dense operator text stays lower in the layout so the exact values remain available without dominating the page."
         )
-        readoutSection.pinContent(scroll)
+        readoutStage.pinContent(scroll)
 
-        let stack = NSStackView(views: [summarySection, readoutSection])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
-        )
+        stack.addArrangedSubview(snapshotStage)
+        stack.addArrangedSubview(readoutStage)
+        [snapshotStage, readoutStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
-        readoutSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
+        readoutStage.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
     }
 
     @objc private func intervalChanged() {
@@ -112,19 +125,22 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     }
 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {
-        cpuCard.set(
+        cpuRow.set(
             value: String(format: "%.1f%%", snapshot.cpu.overallPercent),
             detail: snapshot.cpu.frequencyGHz.map { String(format: "%.2f GHz | %d cores", $0, snapshot.cpu.perCorePercent.count) } ?? "\(snapshot.cpu.perCorePercent.count) cores",
+            progress: snapshot.cpu.overallPercent,
             tone: snapshot.cpu.overallPercent > 80 ? .warning : .accent
         )
-        memoryCard.set(
+        memoryRow.set(
             value: String(format: "%.1f%%", snapshot.memory.usagePercent),
             detail: String(format: "%.2f GB used of %.2f GB", snapshot.memory.usedGB, snapshot.memory.totalGB),
+            progress: snapshot.memory.usagePercent,
             tone: snapshot.memory.usagePercent > 85 ? .warning : .accent
         )
-        diskCard.set(
+        diskRow.set(
             value: String(format: "%.1f%%", snapshot.disk.usagePercent),
             detail: String(format: "%.2f GB free on %@", snapshot.disk.availableGB, DashboardFormatters.abbreviatedPath(snapshot.disk.mountPoint)),
+            progress: snapshot.disk.usagePercent,
             tone: snapshot.disk.usagePercent > 90 ? .warning : .accent
         )
 
@@ -134,11 +150,23 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         } else {
             thermalText = "Unavailable"
         }
-        thermalCard.set(
+        thermalRow.set(
             value: snapshot.thermal.thermalLevel ?? "Nominal",
             detail: thermalText,
+            progress: snapshot.thermal.cpuTempCelsius ?? 0,
             tone: snapshot.thermal.thermalLevel == nil || snapshot.thermal.thermalLevel == "Nominal" ? .accent : .warning
         )
+
+        factsPanel.setRows([
+            ("Refresh", coordinator?.currentInterval.label ?? RefreshInterval.twoSeconds.label),
+            ("Power Source", snapshot.power.powerSource),
+            ("Charge", snapshot.power.batteryPercent.map { "\($0)%" } ?? "No battery"),
+            ("Time Remaining", DashboardFormatters.duration(minutes: snapshot.power.timeRemainingMinutes)),
+            ("Condition", snapshot.power.condition ?? "Unavailable"),
+            ("CPU Temp", snapshot.thermal.cpuTempCelsius.map { String(format: "%.1f C", $0) } ?? "Unavailable"),
+            ("Battery Temp", snapshot.thermal.batteryTempCelsius.map { String(format: "%.1f C", $0) } ?? "Unavailable"),
+            ("Wattage", snapshot.power.wattageDraw.map { String(format: "%.2f W", $0) } ?? "Unavailable")
+        ])
 
         var lines: [String] = []
         lines.append("══ CPU ═════════════════════════════════")

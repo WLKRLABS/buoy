@@ -79,7 +79,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     }
 
     private func buildLayout() {
-        let (_, documentView) = installVerticalScrollContainer(in: view)
+        let (_, _, stack) = installDashboardDocumentStack(in: view)
 
         searchField.placeholderString = "Search name or path"
         searchField.delegate = self
@@ -197,14 +197,43 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         )
         itemsSection.pinContent(tableStack)
 
-        let stack = NSStackView(views: [summarySection, overviewGrid, itemsSection, accessSection])
-        stack.orientation = .vertical
-        stack.spacing = 12
-        documentView.addSubview(stack)
-        stack.pinEdges(
-            to: documentView,
-            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        let capacityContent = NSStackView(views: [summarySection, overviewGrid])
+        capacityContent.orientation = .vertical
+        capacityContent.alignment = .width
+        capacityContent.spacing = 12
+        summarySection.translatesAutoresizingMaskIntoConstraints = false
+        overviewGrid.translatesAutoresizingMaskIntoConstraints = false
+        summarySection.widthAnchor.constraint(equalTo: capacityContent.widthAnchor).isActive = true
+        overviewGrid.widthAnchor.constraint(equalTo: capacityContent.widthAnchor).isActive = true
+
+        let capacityStage = DashboardStageView(
+            sectionLabel: "Capacity",
+            title: "Storage Footprint",
+            subtitle: "Disk totals first, then the breakdown and scan state that explain where the pressure is coming from."
         )
+        capacityStage.pinContent(capacityContent)
+
+        let cleanupStage = DashboardStageView(
+            sectionLabel: "Cleanup",
+            title: "Cleanup Targets",
+            subtitle: "Heavy files and folders stay in the working layer so cleanup decisions are one scroll away."
+        )
+        cleanupStage.pinContent(itemsSection)
+
+        let accessStage = DashboardStageView(
+            sectionLabel: "Access",
+            title: "Access Grants",
+            subtitle: "Protected folders and saved extra locations remain available, but secondary to the capacity story."
+        )
+        accessStage.pinContent(accessSection)
+
+        stack.addArrangedSubview(capacityStage)
+        stack.addArrangedSubview(cleanupStage)
+        stack.addArrangedSubview(accessStage)
+        [capacityStage, cleanupStage, accessStage].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
 
         accessSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
         itemsSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 340).isActive = true
