@@ -255,6 +255,7 @@ final class AdaptiveGridView: NSView {
         super.init(frame: .zero)
 
         rootStack.orientation = .vertical
+        rootStack.alignment = .leading
         rootStack.spacing = rowSpacing
         rootStack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(rootStack)
@@ -302,6 +303,7 @@ final class AdaptiveGridView: NSView {
             row.alignment = .top
             row.distribution = .fillEqually
             row.spacing = columnSpacing
+            row.translatesAutoresizingMaskIntoConstraints = false
 
             let endIndex = min(index + columnCount, items.count)
             items[index..<endIndex].forEach { row.addArrangedSubview($0) }
@@ -315,6 +317,7 @@ final class AdaptiveGridView: NSView {
             }
 
             rootStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: rootStack.widthAnchor).isActive = true
         }
 
         invalidateIntrinsicContentSize()
