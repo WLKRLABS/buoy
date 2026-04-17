@@ -83,7 +83,9 @@ current_version() {
 
 ensure_tag_absent() {
   local tag_name="$1"
-  git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag_name" >/dev/null 2>&1 && die "Tag $tag_name already exists."
+  if git -C "$ROOT_DIR" rev-parse -q --verify "refs/tags/$tag_name" >/dev/null 2>&1; then
+    die "Tag $tag_name already exists."
+  fi
 }
 
 print_changelog_head() {

@@ -10,6 +10,8 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Fixed
 
+- Fixed `./scripts/release.sh tag` so it no longer trips over `set -e` when the target tag does not already exist.
+
 ### Removed
 
 ## [0.3.1] - 2026-04-16
