@@ -18,6 +18,7 @@ For Buoy, the public contract is:
 - `Buoy.app` behavior
 - release assets and install flow
 - documented operational behavior in `README.md`
+- user and developer behavior documented in `docs/`
 
 If a change alters one of those surfaces, it should be reflected in the version bump and changelog.
 
@@ -88,6 +89,11 @@ bash scripts/validate-versioning.sh
 6. Tag the release with `vX.Y.Z`.
 7. Push the commit and tag.
 8. Let GitHub Actions build assets and publish the release from the tag.
+
+See also:
+
+- [docs/developer/release-process.md](docs/developer/release-process.md)
+- [docs/changelog.md](docs/changelog.md)
 
 ## CI Validation Logic
 

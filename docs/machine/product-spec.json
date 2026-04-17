@@ -1,0 +1,286 @@
+{
+  "app_name": "Buoy",
+  "category": "macOS power-management and system-inspection utility",
+  "platform": {
+    "os": "macOS",
+    "minimum_app_version": "13.0",
+    "distribution_shape": [
+      "CLI: buoy",
+      "App: Buoy.app"
+    ],
+    "architectures": "Current local builds in this workspace are arm64. Official universal or Intel release support is [TBD — requires product/source confirmation]."
+  },
+  "summary": "Buoy applies a reversible AC power profile through a CLI-first engine and exposes a native macOS dashboard for power, system, process, service, network, and storage inspection.",
+  "features": [
+    {
+      "name": "Buoy mode",
+      "description": "Applies a server-friendly AC profile and restores the previously saved AC settings."
+    },
+    {
+      "name": "Closed-lid awake mode",
+      "description": "Optionally manages SleepDisabled above a battery floor with a helper process."
+    },
+    {
+      "name": "Configurable display sleep",
+      "description": "Lets the display sleep on its own timer while full idle sleep on AC stays disabled."
+    },
+    {
+      "name": "Native power control surface",
+      "description": "Wraps the CLI in a native macOS app with explicit apply, restore, refresh, and display-sleep actions."
+    },
+    {
+      "name": "Live dashboard",
+      "description": "Shows Overview, Power, System, Processes, Services, Network, and Storage sections."
+    },
+    {
+      "name": "Storage summary refresh",
+      "description": "Loads cached or fast summary storage data without forcing a full file enumeration."
+    },
+    {
+      "name": "Storage deep scan",
+      "description": "Enumerates large files and deeper targets for exact cleanup review."
+    },
+    {
+      "name": "Machine-readable status",
+      "description": "Provides JSON output for status and doctor commands."
+    }
+  ],
+  "permissions": [
+    {
+      "name": "Administrator authentication",
+      "required_for": [
+        "buoy apply",
+        "buoy off",
+        "app Apply action",
+        "app Turn Off action"
+      ],
+      "reason": "Buoy writes privileged pmset values."
+    },
+    {
+      "name": "Protected-folder access",
+      "required_for": [
+        "Desktop storage scans",
+        "Documents storage scans",
+        "Downloads storage scans",
+        "Pictures storage scans"
+      ],
+      "reason": "Buoy keeps protected storage scopes opt-in."
+    },
+    {
+      "name": "Custom folder or drive access",
+      "required_for": [
+        "Saved Drives & Folders storage scans"
+      ],
+      "reason": "Buoy stores bookmarks for user-selected extra scan locations."
+    }
+  ],
+  "metrics": [
+    {
+      "name": "cpu_overall_percent",
+      "surface": [
+        "Overview",
+        "System"
+      ],
+      "notes": "Delta-based CPU usage across all cores."
+    },
+    {
+      "name": "cpu_per_core_percent",
+      "surface": [
+        "System"
+      ],
+      "notes": "Per-core CPU usage percentages."
+    },
+    {
+      "name": "memory_usage_percent",
+      "surface": [
+        "Overview",
+        "System"
+      ],
+      "notes": "Approximate used-memory percentage based on active + wired + compressed memory."
+    },
+    {
+      "name": "disk_usage_percent",
+      "surface": [
+        "Overview",
+        "System",
+        "Storage"
+      ],
+      "notes": "Root-mount usage using volume metadata when available."
+    },
+    {
+      "name": "battery_percent",
+      "surface": [
+        "Overview",
+        "Power",
+        "System"
+      ],
+      "notes": "Unavailable on machines without a battery."
+    },
+    {
+      "name": "wattage_draw",
+      "surface": [
+        "Overview",
+        "System"
+      ],
+      "notes": "Approximate instantaneous power draw when exposed by AppleSmartBattery."
+    },
+    {
+      "name": "thermal_pressure",
+      "surface": [
+        "Overview",
+        "System"
+      ],
+      "notes": "Derived from ProcessInfo thermal state."
+    },
+    {
+      "name": "storage_reclaimable_bytes",
+      "surface": [
+        "Storage"
+      ],
+      "notes": "Sum of items currently classified as cleanup candidates."
+    }
+  ],
+  "settings": [
+    {
+      "name": "display_sleep_minutes",
+      "surface": "Power",
+      "default": 10,
+      "range": "1-180",
+      "cli_flag": "--display-sleep"
+    },
+    {
+      "name": "clam_enabled",
+      "surface": "Power",
+      "default": false,
+      "cli_flag": "--clam"
+    },
+    {
+      "name": "clam_min_battery",
+      "surface": "Power",
+      "default": 25,
+      "range": "0-100",
+      "cli_flag": "--clam-min-battery"
+    },
+    {
+      "name": "clam_poll_seconds",
+      "surface": "Power",
+      "default": 20,
+      "range": "5-3600",
+      "cli_flag": "--clam-poll-seconds"
+    },
+    {
+      "name": "appearance_mode",
+      "surface": "Power",
+      "default": "System",
+      "choices": [
+        "System",
+        "Light",
+        "Dark"
+      ]
+    },
+    {
+      "name": "refresh_interval",
+      "surface": "System",
+      "default": "2 sec",
+      "choices": [
+        "2 sec",
+        "5 sec",
+        "10 sec",
+        "30 sec",
+        "1 min"
+      ]
+    },
+    {
+      "name": "storage_access_scopes",
+      "surface": "Storage",
+      "default": "All protected scopes off",
+      "choices": [
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Pictures",
+        "Saved Drives & Folders"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "Enable Buoy mode",
+      "entry_points": [
+        "buoy apply",
+        "Power -> Apply"
+      ]
+    },
+    {
+      "name": "Restore normal AC sleep behavior",
+      "entry_points": [
+        "buoy off",
+        "Power -> Turn Off"
+      ]
+    },
+    {
+      "name": "Inspect current machine state",
+      "entry_points": [
+        "Overview",
+        "System",
+        "Processes",
+        "Services",
+        "Network"
+      ]
+    },
+    {
+      "name": "Review storage pressure",
+      "entry_points": [
+        "Storage -> Refresh Summary",
+        "Storage -> Deep Scan"
+      ]
+    },
+    {
+      "name": "Script status collection",
+      "entry_points": [
+        "buoy status --json",
+        "buoy doctor --json"
+      ]
+    }
+  ],
+  "limitations": [
+    "macOS only.",
+    "Buoy.app declares minimum macOS version 13.0.",
+    "Current build scripts compile native binaries for the build host instead of universal binaries.",
+    "Restore behavior depends on the Buoy state file remaining intact.",
+    "Closed-lid awake mode depends on a helper process that can drift if killed externally.",
+    "CPU temperature is intentionally unavailable in the current Apple silicon path.",
+    "Protected storage folders remain partial until explicitly granted.",
+    "The current repository does not show a notarization step for app distribution."
+  ],
+  "troubleshooting": [
+    {
+      "symptom": "buoy command not found",
+      "first_checks": [
+        "Confirm ~/.local/bin/buoy exists",
+        "Confirm ~/.local/bin is on PATH"
+      ]
+    },
+    {
+      "symptom": "App shows status unavailable",
+      "first_checks": [
+        "Run buoy status --json in Terminal",
+        "Confirm the installed CLI is available"
+      ]
+    },
+    {
+      "symptom": "buoy off cannot restore expected settings",
+      "first_checks": [
+        "Confirm ~/.buoy/state.json exists",
+        "Confirm mode state in buoy status"
+      ]
+    },
+    {
+      "symptom": "Storage scan skips folders",
+      "first_checks": [
+        "Review Access Grants in the Storage section",
+        "Check for skipped protected paths in the status text"
+      ]
+    }
+  ]
+}

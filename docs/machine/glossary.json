@@ -1,0 +1,171 @@
+{
+  "terms": [
+    {
+      "term": "Buoy mode",
+      "plain_language_definition": "Buoy's keep-awake-on-AC profile.",
+      "technical_definition": "A managed AC pmset profile applied by buoy apply and restored by buoy off.",
+      "related_terms": [
+        "display sleep",
+        "restore point",
+        "pmset"
+      ]
+    },
+    {
+      "term": "Closed-lid awake mode",
+      "plain_language_definition": "Optional behavior that keeps the Mac awake with the lid closed above a battery floor.",
+      "technical_definition": "A helper-driven mode that manages SleepDisabled based on power source and battery threshold.",
+      "related_terms": [
+        "battery floor",
+        "poll interval",
+        "SleepDisabled"
+      ]
+    },
+    {
+      "term": "Display sleep",
+      "plain_language_definition": "How long the screen waits before sleeping.",
+      "technical_definition": "The pmset displaysleep value Buoy applies on AC.",
+      "related_terms": [
+        "Buoy mode",
+        "pmset"
+      ]
+    },
+    {
+      "term": "Battery floor",
+      "plain_language_definition": "The battery percentage below which closed-lid awake mode stops staying on.",
+      "technical_definition": "The clam_min_battery configuration value used by the closed-lid helper.",
+      "related_terms": [
+        "closed-lid awake mode",
+        "poll interval"
+      ]
+    },
+    {
+      "term": "Poll interval",
+      "plain_language_definition": "How often Buoy rechecks battery state for closed-lid mode.",
+      "technical_definition": "The clam_poll_seconds value passed to the closed-lid helper.",
+      "related_terms": [
+        "closed-lid awake mode",
+        "battery floor"
+      ]
+    },
+    {
+      "term": "Restore point",
+      "plain_language_definition": "The saved AC settings Buoy returns to when you turn it off.",
+      "technical_definition": "The originalValues map stored in ~/.buoy/state.json the first time Buoy mode is applied.",
+      "related_terms": [
+        "state file",
+        "Buoy mode"
+      ]
+    },
+    {
+      "term": "State file",
+      "plain_language_definition": "Buoy's local power-state record.",
+      "technical_definition": "The JSON file at ~/.buoy/state.json that stores mode state, restore values, config, and helper metadata.",
+      "related_terms": [
+        "restore point",
+        "Buoy mode"
+      ]
+    },
+    {
+      "term": "Summary refresh",
+      "plain_language_definition": "The fast storage scan.",
+      "technical_definition": "StorageScanner summaryOnly mode with bounded per-path work and no fresh largest-file enumeration.",
+      "related_terms": [
+        "deep scan",
+        "partial scan",
+        "storage cache"
+      ]
+    },
+    {
+      "term": "Deep scan",
+      "plain_language_definition": "The slower, more exact storage scan.",
+      "technical_definition": "StorageScanner deep mode that walks deeper targets and enumerates large files.",
+      "related_terms": [
+        "summary refresh",
+        "heavy items"
+      ]
+    },
+    {
+      "term": "Partial scan",
+      "plain_language_definition": "Storage data is available, but the current largest-file list is incomplete or missing.",
+      "technical_definition": "A storage cache or live snapshot where scan mode is summaryOnly and no current deep timestamp is available.",
+      "related_terms": [
+        "summary refresh",
+        "deep scan"
+      ]
+    },
+    {
+      "term": "Storage cache",
+      "plain_language_definition": "Saved storage results for faster tab opening.",
+      "technical_definition": "The cache record stored at ~/Library/Application Support/Buoy/storage-scan-cache.json.",
+      "related_terms": [
+        "summary refresh",
+        "deep scan",
+        "access fingerprint"
+      ]
+    },
+    {
+      "term": "Access fingerprint",
+      "plain_language_definition": "A record of which storage locations Buoy is allowed to scan.",
+      "technical_definition": "A normalized list of enabled protected scopes and custom paths used to validate cached storage data.",
+      "related_terms": [
+        "storage cache",
+        "protected folder",
+        "custom locations"
+      ]
+    },
+    {
+      "term": "Protected folder",
+      "plain_language_definition": "A sensitive folder that Buoy scans only after you opt in.",
+      "technical_definition": "One of the Desktop, Documents, Downloads, or Pictures scopes managed by StorageAccessManager.",
+      "related_terms": [
+        "security-scoped bookmark",
+        "access grants"
+      ]
+    },
+    {
+      "term": "Security-scoped bookmark",
+      "plain_language_definition": "The saved permission Buoy uses to revisit a folder you approved.",
+      "technical_definition": "Bookmark data stored in UserDefaults and resolved into a security-scoped URL at scan time.",
+      "related_terms": [
+        "protected folder",
+        "custom locations"
+      ]
+    },
+    {
+      "term": "Cleanup signal",
+      "plain_language_definition": "Buoy's advice about how safe an item might be to review for cleanup.",
+      "technical_definition": "The StorageSafety classification: Likely Safe, Review First, or Essential.",
+      "related_terms": [
+        "reclaimable",
+        "storage category"
+      ]
+    },
+    {
+      "term": "Reclaimable",
+      "plain_language_definition": "Space Buoy thinks is worth reviewing for cleanup.",
+      "technical_definition": "The sum of storage items currently classified as cleanup candidates.",
+      "related_terms": [
+        "cleanup signal",
+        "storage category"
+      ]
+    },
+    {
+      "term": "Thermal pressure",
+      "plain_language_definition": "macOS's current thermal stress level for the machine.",
+      "technical_definition": "The ProcessInfo thermalState rendered as Nominal, Fair, Serious, or Critical.",
+      "related_terms": [
+        "CPU temperature",
+        "Overview posture"
+      ]
+    },
+    {
+      "term": "Overview posture",
+      "plain_language_definition": "The top summary that tells you whether the machine looks ready, busy, tight, or under thermal watch.",
+      "technical_definition": "The derived summary in OverviewViewController based on thermal, CPU, memory, disk, and battery heuristics.",
+      "related_terms": [
+        "alerts and thresholds",
+        "thermal pressure"
+      ]
+    }
+  ]
+}

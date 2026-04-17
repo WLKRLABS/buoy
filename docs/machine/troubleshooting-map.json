@@ -1,0 +1,152 @@
+{
+  "issues": [
+    {
+      "symptom": "buoy command not found",
+      "likely_causes": [
+        "~/.local/bin is not on PATH",
+        "CLI install step did not complete"
+      ],
+      "checks": [
+        "ls ~/.local/bin/buoy",
+        "echo \"$PATH\""
+      ],
+      "fixes": [
+        "Run buoy path-add if the binary exists",
+        "Rerun install.sh or the remote installer if the binary is missing"
+      ],
+      "escalation_path": "If the binary still is not present after reinstall, inspect install.sh output and the selected BIN_DIR."
+    },
+    {
+      "symptom": "App shows status unavailable",
+      "likely_causes": [
+        "Installed CLI cannot be resolved by the app",
+        "buoy status --json failed or returned invalid output"
+      ],
+      "checks": [
+        "Run buoy status --json in Terminal",
+        "Confirm the CLI is installed and executable"
+      ],
+      "fixes": [
+        "Reinstall Buoy",
+        "Confirm the CLI works before reopening the app"
+      ],
+      "escalation_path": "Inspect ShellBridge CLI path resolution if the app still disagrees with the CLI."
+    },
+    {
+      "symptom": "Apply or Turn Off fails",
+      "likely_causes": [
+        "Administrator authentication was denied",
+        "pmset returned an error",
+        "The app could not run the CLI through the privileged bridge"
+      ],
+      "checks": [
+        "Run buoy apply --dry-run",
+        "Run buoy doctor",
+        "Repeat the action in Terminal if possible"
+      ],
+      "fixes": [
+        "Retry and complete the macOS administrator prompt",
+        "Verify pmset and osascript are available"
+      ],
+      "escalation_path": "Capture the CLI error message and confirm whether the failure occurs in both the app and Terminal."
+    },
+    {
+      "symptom": "buoy off says Buoy mode is already off",
+      "likely_causes": [
+        "The Buoy state file is missing",
+        "The machine state drifted outside Buoy"
+      ],
+      "checks": [
+        "ls ~/.buoy/state.json",
+        "Run buoy status"
+      ],
+      "fixes": [
+        "Do not assume Buoy can restore settings without the state file",
+        "Inspect current pmset values before making new changes"
+      ],
+      "escalation_path": "Treat missing restore state as a manual recovery situation."
+    },
+    {
+      "symptom": "Closed-lid monitor is stopped",
+      "likely_causes": [
+        "Helper process was killed externally",
+        "Saved PID is stale"
+      ],
+      "checks": [
+        "Run buoy status",
+        "Look for monitor_running false"
+      ],
+      "fixes": [
+        "Reapply Buoy with --clam"
+      ],
+      "escalation_path": "Inspect helper launch flow in BuoyEngine if the helper stops repeatedly."
+    },
+    {
+      "symptom": "Storage scan skips folders",
+      "likely_causes": [
+        "Protected folder access was not granted",
+        "The scan path timed out or could not be inspected"
+      ],
+      "checks": [
+        "Review Access Grants in the Storage section",
+        "Read the Storage status text for skipped paths"
+      ],
+      "fixes": [
+        "Enable and grant the relevant protected folder",
+        "Refresh Summary again after the grant is saved"
+      ],
+      "escalation_path": "Inspect StorageAccessManager and StorageScanner if paths remain skipped after a valid grant."
+    },
+    {
+      "symptom": "Storage page stays partial",
+      "likely_causes": [
+        "Only a summary snapshot exists",
+        "No deep scan has completed for the current access fingerprint"
+      ],
+      "checks": [
+        "Look for Partial Scan in the Storage state label",
+        "Check whether a last deep scan timestamp is shown"
+      ],
+      "fixes": [
+        "Run Deep Scan"
+      ],
+      "escalation_path": "Inspect StorageCacheStore and StorageRefreshPolicy if deep scans complete but partial status remains."
+    },
+    {
+      "symptom": "Battery, wattage, or thermal values are unavailable",
+      "likely_causes": [
+        "Machine does not expose the value",
+        "The host has no battery",
+        "CPU temperature is intentionally unavailable in the current source"
+      ],
+      "checks": [
+        "Compare behavior on a notebook versus a desktop Mac",
+        "Review metrics-and-definitions documentation"
+      ],
+      "fixes": [
+        "Treat missing battery data as normal on desktop Macs",
+        "Use thermal pressure when CPU temperature is unavailable"
+      ],
+      "escalation_path": "Only escalate if a value disappears on hardware where it was previously available and other power metrics still work."
+    },
+    {
+      "symptom": "Build from source fails",
+      "likely_causes": [
+        "swiftc is missing",
+        "Active macOS SDK path is unavailable",
+        "Local Apple toolchain is unhealthy"
+      ],
+      "checks": [
+        "xcrun --find swiftc",
+        "xcrun --show-sdk-path",
+        "./scripts/build-cli.sh",
+        "./scripts/build-app.sh"
+      ],
+      "fixes": [
+        "Repair the Apple toolchain",
+        "Use the repo scripts rather than ad hoc compiler commands"
+      ],
+      "escalation_path": "If build scripts still fail, capture the exact compiler output and the active developer directory."
+    }
+  ]
+}

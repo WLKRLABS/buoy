@@ -1,0 +1,143 @@
+features:
+  - feature_name: Buoy mode
+    user_value: Keeps a Mac awake on AC power while preserving a restore point for the original AC profile.
+    ui_location:
+      cli:
+        - buoy apply
+        - buoy off
+        - buoy status
+      app:
+        - Power section
+    dependencies:
+      - pmset
+      - administrator authentication
+      - ~/.buoy/state.json
+    related_settings:
+      - Enable Buoy mode
+      - Display sleep
+
+  - feature_name: Closed-lid awake mode
+    user_value: Keeps a notebook awake with the lid closed while charging or above a configured battery floor.
+    ui_location:
+      cli:
+        - buoy apply --clam
+      app:
+        - Power section
+    dependencies:
+      - pmset disablesleep
+      - closed-lid helper process
+      - battery telemetry
+    related_settings:
+      - Allow closed-lid awake mode
+      - Battery floor
+      - Poll interval
+
+  - feature_name: Display sleep control
+    user_value: Lets the display sleep on a timer without restoring full idle sleep on AC.
+    ui_location:
+      cli:
+        - buoy apply --display-sleep MINUTES
+      app:
+        - Power section
+    dependencies:
+      - pmset displaysleep
+    related_settings:
+      - Display sleep
+
+  - feature_name: Native power control surface
+    user_value: Gives users a native macOS way to apply, restore, refresh, and inspect Buoy state.
+    ui_location:
+      app:
+        - Power section
+    dependencies:
+      - ShellBridge
+      - installed buoy binary
+      - osascript for privileged writes
+    related_settings:
+      - Appearance
+
+  - feature_name: Overview dashboard
+    user_value: Summarizes live CPU, memory, disk, battery, and thermal state at a glance.
+    ui_location:
+      app:
+        - Overview section
+    dependencies:
+      - RefreshCoordinator
+      - MetricsCollector
+    related_settings: []
+
+  - feature_name: System snapshot view
+    user_value: Shows dense current system metrics and a raw readout for exact inspection.
+    ui_location:
+      app:
+        - System section
+    dependencies:
+      - RefreshCoordinator
+      - MetricsCollector
+    related_settings:
+      - Refresh interval
+
+  - feature_name: Processes table
+    user_value: Helps users find high-CPU or high-memory processes quickly.
+    ui_location:
+      app:
+        - Processes section
+    dependencies:
+      - ProcessMetricsCollector
+    related_settings: []
+
+  - feature_name: Services table
+    user_value: Shows launchd services, their boot state, runtime status, and plist locations.
+    ui_location:
+      app:
+        - Services section
+    dependencies:
+      - launchctl
+      - launchd plist directories
+      - ProcessMetricsCollector
+    related_settings: []
+
+  - feature_name: Network surface view
+    user_value: Shows listening services and network interfaces without leaving the app.
+    ui_location:
+      app:
+        - Network section
+    dependencies:
+      - lsof
+      - getifaddrs
+    related_settings: []
+
+  - feature_name: Storage summary refresh
+    user_value: Opens storage analysis quickly from cached or bounded summary data.
+    ui_location:
+      app:
+        - Storage section
+        - Refresh Summary action
+    dependencies:
+      - StorageScanner summaryOnly mode
+      - StorageCacheStore
+      - StorageAccessManager
+    related_settings:
+      - Storage access scopes
+
+  - feature_name: Storage deep scan
+    user_value: Produces current largest-file results for cleanup review.
+    ui_location:
+      app:
+        - Storage section
+        - Deep Scan action
+    dependencies:
+      - StorageScanner deep mode
+      - granted folder access for protected or custom paths
+    related_settings:
+      - Storage access scopes
+
+  - feature_name: Machine-readable status
+    user_value: Enables scripts and automation to inspect Buoy without scraping human-readable output.
+    ui_location:
+      cli:
+        - buoy status --json
+        - buoy doctor --json
+    dependencies:
+      - JSON encoding in CLI
+    related_settings: []
