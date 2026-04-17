@@ -6,6 +6,16 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.3.1] - 2026-04-16
+
+### Added
+
 - Added a dedicated Storage dashboard tab with a deeper disk scan, largest files and folders table, cleanup-focused filters, and a breakdown graph that makes hidden or system-heavy usage easier to spot.
 - Added opt-in Storage access controls for protected folders plus saved-location bookmarks for extra folders and drives so scans do not spam permission prompts and your grants persist across app relaunches.
 - Added a complete documentation system for users, power users, developers, and automation tools, including structured machine-readable product references.
@@ -16,6 +26,7 @@ This changelog is intentionally lightweight. Each released version gets one shor
 - Reworked the Buoy app shell into a retro, keyboard-friendly control surface with a sidebar section navigator, explicit View menu shortcuts, and cleaner power/dashboard hierarchy.
 - Updated the dashboard panels, cards, and tables to use a more consistent utilitarian visual system instead of the previous mismatched default AppKit styling.
 - Reworked the Overview, Power, System, Processes, Services, Network, and Storage pages into a more structured stage-based layout so each tab reads in a clearer order and holds its composition more reliably as the window resizes.
+- Added a guarded `./scripts/release.sh` flow for release prep and tagging so version bumps, changelog rollups, build validation, and release-tag safety checks run through one path instead of several manual steps.
 
 ### Fixed
 
@@ -26,6 +37,8 @@ This changelog is intentionally lightweight. Each released version gets one shor
 - Fixed the Storage tab summary refresh so it uses a macOS-closer disk-used metric, normalizes protected-folder grants like `~` back to the intended Desktop/Documents/Downloads/Pictures folders, and avoids stalling on giant system roots.
 - Fixed repeated Photos permission popups by making `Pictures` opt-in for storage scans and signing the built app bundle with a stable identifier so macOS can persist app permissions.
 - Fixed local build identity drift by adding a repo-managed local signing setup so Buoy can keep the same macOS code-signing identity across local rebuilds and installs.
+- Fixed release packaging so `Buoy.app` builds can continue when `iconutil` rejects the generated iconset instead of failing the entire local or CI release flow.
+- Fixed local app builds so a stale repo-managed signing identity now falls back to ad hoc signing instead of breaking release prep on machines with an old keychain setup.
 
 ## [0.2.0] - 2026-04-15
 

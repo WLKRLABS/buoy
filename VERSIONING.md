@@ -73,22 +73,22 @@ If a PR is internal-only and does not affect the public surface, it does not nee
 ## Release Process
 
 1. Confirm `main` is stable and CI is green.
-2. Move relevant bullets from `Unreleased` into a new versioned section in `CHANGELOG.md`.
-3. Update `VERSION`.
-4. Run:
+2. Make sure `CHANGELOG.md` has the release-ready bullets under `Unreleased`.
+3. Run:
 
 ```bash
-bash scripts/validate-versioning.sh
-./scripts/build-cli.sh
-./scripts/build-app.sh
-./scripts/package-release.sh
-./scripts/render-release-notes.sh
+./scripts/release.sh prepare X.Y.Z
 ```
 
-5. Commit the release prep.
-6. Tag the release with `vX.Y.Z`. 
-7. Push the commit and tag.
-8. Let GitHub Actions build assets and publish the release from the tag.
+4. Review the diff and commit the release prep with `release: vX.Y.Z`.
+5. Create the tag with:
+
+```bash
+./scripts/release.sh tag
+```
+
+6. Push the commit and tag.
+7. Let GitHub Actions build assets and publish the release from the tag.
 
 See also:
 

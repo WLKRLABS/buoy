@@ -23,39 +23,52 @@ Document the release-prep workflow, tag rules, and GitHub Actions handoff in one
 - make sure `CHANGELOG.md` already contains the relevant `Unreleased` entries
 - release tags must be `vX.Y.Z`
 - the tag must match `VERSION`
+- release tags must point at a commit named `release: vX.Y.Z`
 
 ## Standard Release Flow
 
 1. Confirm `main` is stable and CI is green.
-2. Move release-ready bullets from `Unreleased` into a new versioned section in `CHANGELOG.md`.
-3. Update `VERSION`.
-4. Run:
+2. Pick the next version from `VERSIONING.md`.
+3. Run:
 
 ```bash
-bash scripts/validate-versioning.sh
-./scripts/smoke-test.sh
-./scripts/build-cli.sh
-./scripts/build-app.sh
-./scripts/package-release.sh
-./scripts/render-release-notes.sh
+./scripts/release.sh prepare X.Y.Z
 ```
 
-5. Install the release locally if you need to update the current machine:
+This command:
+
+- moves the current `Unreleased` changelog body into `## [X.Y.Z] - YYYY-MM-DD`
+- resets `Unreleased` to empty release headings
+- updates `VERSION`
+- runs version validation, smoke checks, CLI build, app build, packaging, and release-notes rendering
+
+4. Install the release locally if you need to update the current machine:
 
 ```bash
 ./install.sh
 ```
 
-6. Commit the release prep.
-7. Tag the release:
+5. Review the diff, then commit the release prep with:
 
 ```bash
-git tag vX.Y.Z
+git commit -m "release: vX.Y.Z"
 ```
 
-8. Push the branch and tag.
-9. Let GitHub Actions publish the release assets.
-10. Verify the published release and assets.
+6. Tag the release with:
+
+```bash
+./scripts/release.sh tag
+```
+
+The tag command refuses to run unless:
+
+- the worktree is clean
+- `CHANGELOG.md` and `VERSION` still validate
+- `HEAD` is a commit named `release: vX.Y.Z`
+
+7. Push the branch and tag.
+8. Let GitHub Actions publish the release assets.
+9. Verify the published release and assets.
 
 ## Release Assets
 
@@ -91,6 +104,7 @@ Trigger:
 Current steps:
 
 - validate version and tag match
+- validate the release commit subject
 - build release assets
 - render release notes
 - publish a GitHub release with attached files

@@ -93,6 +93,7 @@ Do not:
 - never bump `VERSION` for routine feature PRs
 - add user-visible doc changes to the changelog
 - use tag format `vX.Y.Z`
+- use `./scripts/release.sh prepare X.Y.Z` and `./scripts/release.sh tag` for the release path
 
 For full release steps, see [Release Process](release-process.md).
 

@@ -12,6 +12,7 @@ Use this workflow when changes in this repo are ready to become a tagged Buoy re
 - `VERSIONING.md`
 - `CONTRIBUTING.md`
 - `CHANGELOG.md`
+- `scripts/release.sh`
 - `scripts/validate-versioning.sh`
 - `scripts/package-release.sh`
 - `scripts/render-release-notes.sh`
@@ -28,21 +29,15 @@ Use this workflow when changes in this repo are ready to become a tagged Buoy re
 
 1. Confirm the worktree only contains the intended release changes.
 2. Decide the SemVer bump from `VERSIONING.md`.
-3. Move the user-visible bullets into a new dated version section in `CHANGELOG.md`.
-4. Update `VERSION`.
-5. Run:
+3. Make sure `CHANGELOG.md` contains the intended user-visible bullets under `## [Unreleased]`.
+4. Run:
 
 ```bash
-bash scripts/validate-versioning.sh
-./scripts/smoke-test.sh
-./scripts/build-cli.sh
-./scripts/build-app.sh
-./scripts/package-release.sh
-./scripts/render-release-notes.sh
+./scripts/release.sh prepare X.Y.Z
 ./install.sh
 ```
 
-6. Verify:
+5. Verify:
 
 ```bash
 ./dist/buoy version
@@ -51,22 +46,22 @@ test -f dist/release/buoy
 test -f dist/release/Buoy.app.zip
 ```
 
-7. Review the final diff and staged changes.
-8. Commit with a release-prep message such as `release: vX.Y.Z`.
-9. Create the annotated tag:
+6. Review the final diff and staged changes.
+7. Commit with a release-prep message such as `release: vX.Y.Z`.
+8. Create the annotated tag:
 
 ```bash
-git tag -a vX.Y.Z -m "vX.Y.Z"
+./scripts/release.sh tag
 ```
 
-10. Push the branch and tag:
+9. Push the branch and tag:
 
 ```bash
 git push origin main
 git push origin vX.Y.Z
 ```
 
-11. Verify the GitHub release workflow succeeded and that the release contains:
+10. Verify the GitHub release workflow succeeded and that the release contains:
 
 - `dist/release/buoy`
 - `dist/release/Buoy.app.zip`
@@ -76,4 +71,5 @@ git push origin vX.Y.Z
 
 - Do not tag if validation or packaging fails.
 - Do not leave `VERSION` bumped without also updating the matching changelog section.
+- Do not tag unless `HEAD` is already committed as `release: vX.Y.Z`.
 - Do not push a release tag before the release-prep commit is on the remote branch.

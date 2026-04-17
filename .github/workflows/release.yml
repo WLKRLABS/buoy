@@ -23,6 +23,16 @@ jobs:
           bash scripts/validate-versioning.sh
           test "${GITHUB_REF_NAME}" = "$(./scripts/version.sh tag)"
 
+      - name: Validate release commit subject
+        run: |
+          expected_subject="release: ${GITHUB_REF_NAME}"
+          actual_subject="$(git log -1 --pretty=%s)"
+
+          if [[ "$actual_subject" != "$expected_subject" ]]; then
+            echo "Release tags must point at a commit named '$expected_subject'. Found '$actual_subject'." >&2
+            exit 1
+          fi
+
       - name: Build release assets
         env:
           BUILD_NUMBER: ${{ github.run_number }}

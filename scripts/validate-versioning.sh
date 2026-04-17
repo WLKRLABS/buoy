@@ -17,7 +17,7 @@ if ! grep -Eq '^## \[Unreleased\]' "$CHANGELOG_FILE"; then
 fi
 
 if ! grep -Eq "^## \\[$VERSION\\]" "$CHANGELOG_FILE"; then
-  echo "CHANGELOG.md must contain a section for version $VERSION." >&2
+  echo "CHANGELOG.md must contain a section for version $VERSION. Keep VERSION at the last released value during normal feature work, or run ./scripts/release.sh prepare $VERSION when cutting the release." >&2
   exit 1
 fi
 

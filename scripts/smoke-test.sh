@@ -12,6 +12,7 @@ test -f "$ROOT_DIR/Sources/BuoyApp/main.swift"
 echo "Smoke check: build scripts"
 test -x "$ROOT_DIR/scripts/build-cli.sh" || test -f "$ROOT_DIR/scripts/build-cli.sh"
 test -x "$ROOT_DIR/scripts/build-app.sh" || test -f "$ROOT_DIR/scripts/build-app.sh"
+test -x "$ROOT_DIR/scripts/release.sh" || test -f "$ROOT_DIR/scripts/release.sh"
 
 echo "Smoke check: installer"
 test -f "$ROOT_DIR/install.sh"

@@ -18,13 +18,9 @@
 
 - For future Buoy releases, consult [release-buoy skill](./.codex/skills/release-buoy/SKILL.md).
 - Default release flow:
-  1. Update `CHANGELOG.md` and `VERSION`.
-  2. Run `bash scripts/validate-versioning.sh`.
-  3. Run `./scripts/smoke-test.sh`.
-  4. Run `./scripts/build-cli.sh`.
-  5. Run `./scripts/build-app.sh`.
-  6. Run `./scripts/package-release.sh`.
-  7. Run `./scripts/render-release-notes.sh`.
-  8. Run `./install.sh`.
-  9. Commit release prep, tag `vX.Y.Z`, push branch and tag.
-  10. Verify the GitHub release workflow published assets.
+  1. Make sure `CHANGELOG.md` is updated under `## [Unreleased]`.
+  2. Run `./scripts/release.sh prepare X.Y.Z`.
+  3. Run `./install.sh` when the user asks to update the local machine copy.
+  4. Commit release prep as `release: vX.Y.Z`.
+  5. Run `./scripts/release.sh tag`, then push branch and tag.
+  6. Verify the GitHub release workflow published assets.

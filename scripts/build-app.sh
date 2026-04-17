@@ -100,7 +100,14 @@ if [[ -f "$ICON_SOURCE" ]]; then
     sips -z "$retina_size" "$retina_size" "$ICON_SOURCE" --out "$ICONSET_DIR/icon_${size}x${size}@2x.png" >/dev/null
   done
 
-  iconutil -c icns "$ICONSET_DIR" -o "$STAGING_APP_DIR/Contents/Resources/${ICON_NAME}.icns"
+  if command -v iconutil >/dev/null 2>&1; then
+    if ! iconutil -c icns "$ICONSET_DIR" -o "$STAGING_APP_DIR/Contents/Resources/${ICON_NAME}.icns"; then
+      echo "Warning: iconutil could not generate ${ICON_NAME}.icns. Continuing without a compiled app icon." >&2
+    fi
+  else
+    echo "Warning: iconutil is not available. Continuing without a compiled app icon." >&2
+  fi
+
   rm -rf "$ICONSET_DIR"
 fi
 
@@ -111,6 +118,21 @@ fi
 echo "Signing Buoy.app..."
 if [[ -n "$CODESIGN_KEYCHAIN" && -n "$CODESIGN_KEYCHAIN_PASSWORD" ]]; then
   security unlock-keychain -p "$CODESIGN_KEYCHAIN_PASSWORD" "$CODESIGN_KEYCHAIN" >/dev/null 2>&1 || true
+fi
+
+if [[ "$CODESIGN_IDENTITY" != "-" ]]; then
+  find_identity_args=(-v -p codesigning)
+  if [[ -n "$CODESIGN_KEYCHAIN" ]]; then
+    find_identity_args+=("$CODESIGN_KEYCHAIN")
+  fi
+
+  available_identities="$(security find-identity "${find_identity_args[@]}" 2>/dev/null || true)"
+  if ! grep -Fq "$CODESIGN_IDENTITY" <<<"$available_identities"; then
+    echo "Warning: configured codesign identity $CODESIGN_IDENTITY was not found. Falling back to ad hoc signing." >&2
+    CODESIGN_IDENTITY="-"
+    CODESIGN_KEYCHAIN=""
+    CODESIGN_KEYCHAIN_PASSWORD=""
+  fi
 fi
 
 codesign_args=(

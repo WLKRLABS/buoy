@@ -214,7 +214,15 @@ Package release assets:
 ./scripts/package-release.sh
 ```
 
-Validate versioning and render release notes:
+Prepare a release from the current `Unreleased` notes:
+
+```bash
+./scripts/release.sh prepare X.Y.Z
+git commit -m "release: vX.Y.Z"
+./scripts/release.sh tag
+```
+
+Validate versioning and render release notes manually:
 
 ```bash
 bash scripts/validate-versioning.sh
