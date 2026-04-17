@@ -86,7 +86,7 @@ bash scripts/validate-versioning.sh
 ```
 
 5. Commit the release prep.
-6. Tag the release with `vX.Y.Z`.
+6. Tag the release with `vX.Y.Z`. 
 7. Push the commit and tag.
 8. Let GitHub Actions build assets and publish the release from the tag.
 
