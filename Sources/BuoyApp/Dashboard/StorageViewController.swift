@@ -19,6 +19,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     private let scopePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let kindPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let summaryRefreshButton = NSButton(title: "Refresh Summary", target: nil, action: nil)
     private let refreshButton = NSButton(title: "Deep Scan", target: nil, action: nil)
     private let revealButton = NSButton(title: "Reveal in Finder", target: nil, action: nil)
     private let spinner = NSProgressIndicator()
@@ -26,25 +27,26 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     private let summaryLabel = NSTextField(labelWithString: "0 heavy items")
     private let timestampLabel = NSTextField(labelWithString: "—")
     private let statusLabel = NSTextField(wrappingLabelWithString: "Run a storage scan to see where disk space is actually going.")
-    private let usedCard = StorageSummaryCardView(title: "Disk Used")
-    private let explainedCard = StorageSummaryCardView(title: "Explained")
-    private let cleanupCard = StorageSummaryCardView(title: "Cleanup Focus")
-    private let systemCard = StorageSummaryCardView(title: "System + Hidden")
+    private let grantsLabel = NSTextField(wrappingLabelWithString: "Protected folders are opt-in.")
+    private let usedCard = DashboardMetricCardView(title: "Used")
+    private let availableCard = DashboardMetricCardView(title: "Available")
+    private let userDataCard = DashboardMetricCardView(title: "User Data")
+    private let reclaimableCard = DashboardMetricCardView(title: "Reclaimable")
+    private let systemCard = DashboardMetricCardView(title: "System + Hidden")
     private let breakdownView = StorageBreakdownView()
     private let breakdownLabel = NSTextField(wrappingLabelWithString: "No storage scan yet.")
-    private let highlightsLabel = NSTextField(wrappingLabelWithString: "The storage view scans root, home, apps, caches, and developer folders so Finder-style “System Data” is less opaque.")
+    private let highlightsLabel = NSTextField(wrappingLabelWithString: "The storage view scans root, home, apps, caches, and developer folders so Finder-style System Data is less opaque.")
     private let accessSummaryLabel = NSTextField(wrappingLabelWithString: "Protected folders are opt-in. Buoy saves access bookmarks so your choices survive app relaunches.")
     private let customLocationsSwitch = NSSwitch()
     private let customLocationsStatusLabel = NSTextField(labelWithString: "")
-    private let customLocationsButton = NSButton(title: "Choose…", target: nil, action: nil)
-    private let scrollView = NSScrollView()
+    private let customLocationsButton = NSButton(title: "Choose...", target: nil, action: nil)
     private let table = DashboardTableContainer(columns: [
-        (Column.name, "Name", 220),
-        (Column.kind, "Kind", 80),
-        (Column.category, "Category", 115),
+        (Column.name, "Item", 240),
+        (Column.category, "Area", 120),
         (Column.size, "Size", 110),
-        (Column.signal, "Signal", 110),
-        (Column.path, "Path", 430)
+        (Column.signal, "Cleanup", 115),
+        (Column.kind, "Type", 80),
+        (Column.path, "Location", 430)
     ])
 
     private var scanSnapshot: StorageScanSnapshot?
@@ -60,7 +62,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
     public override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     public override func viewDidLoad() {
@@ -77,6 +79,8 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     }
 
     private func buildLayout() {
+        let (_, documentView) = installVerticalScrollContainer(in: view)
+
         searchField.placeholderString = "Search name or path"
         searchField.delegate = self
 
@@ -100,21 +104,26 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         statusLabel.maximumNumberOfLines = 0
         breakdownLabel.maximumNumberOfLines = 0
         highlightsLabel.maximumNumberOfLines = 0
+        grantsLabel.maximumNumberOfLines = 0
         accessSummaryLabel.maximumNumberOfLines = 0
         breakdownLabel.font = .systemFont(ofSize: 12)
         highlightsLabel.font = .systemFont(ofSize: 12)
+        grantsLabel.font = .systemFont(ofSize: 12)
         accessSummaryLabel.font = .systemFont(ofSize: 12)
         breakdownLabel.textColor = BuoyChrome.primaryTextColor
         highlightsLabel.textColor = BuoyChrome.secondaryTextColor
+        grantsLabel.textColor = BuoyChrome.secondaryTextColor
         accessSummaryLabel.textColor = BuoyChrome.secondaryTextColor
 
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
 
-        refreshButton.bezelStyle = .recessed
+        summaryRefreshButton.bezelStyle = .rounded
+        summaryRefreshButton.contentTintColor = BuoyChrome.secondaryTextColor
+        refreshButton.bezelStyle = .rounded
         refreshButton.contentTintColor = BuoyChrome.accentColor
-        revealButton.bezelStyle = .recessed
+        revealButton.bezelStyle = .rounded
         revealButton.contentTintColor = BuoyChrome.primaryTextColor
 
         table.tableView.delegate = self
@@ -122,56 +131,83 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         table.tableView.target = self
         table.tableView.doubleAction = #selector(revealSelection)
 
-        let cards = AdaptiveGridView(minColumnWidth: 220, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
-        cards.setItems([usedCard, explainedCard, cleanupCard, systemCard])
+        let cards = AdaptiveGridView(minColumnWidth: 200, maxColumns: 5, rowSpacing: 12, columnSpacing: 12)
+        cards.setItems([usedCard, availableCard, userDataCard, reclaimableCard, systemCard])
+
+        let summarySection = DashboardSectionView(
+            title: "Capacity Summary",
+            subtitle: "Used, available, user data, reclaimable space, and the opaque system remainder."
+        )
+        summarySection.pinContent(cards)
 
         let breakdownStack = NSStackView(views: [breakdownView, breakdownLabel, highlightsLabel])
         breakdownStack.orientation = .vertical
         breakdownStack.spacing = 10
-        breakdownView.heightAnchor.constraint(equalToConstant: 94).isActive = true
+        breakdownView.heightAnchor.constraint(equalToConstant: 112).isActive = true
 
-        let breakdownSection = DashboardSectionView(title: "Where Space Is Going")
-        breakdownSection.pinContent(breakdownStack, top: 38, bottom: 14)
+        let breakdownSection = DashboardSectionView(
+            title: "Capacity Breakdown",
+            subtitle: "Disk usage segmented by major storage areas."
+        )
+        breakdownSection.pinContent(breakdownStack)
+
+        let scanAccessory = NSStackView(views: [summaryRefreshButton, refreshButton])
+        scanAccessory.orientation = .horizontal
+        scanAccessory.alignment = .centerY
+        scanAccessory.spacing = 8
 
         let accessSection = buildAccessSection()
 
-        let searchRow = NSStackView(views: [label("SEARCH"), searchField, label("SCOPE"), scopePopup])
-        searchRow.orientation = .horizontal
-        searchRow.alignment = .centerY
-        searchRow.spacing = 8
-
-        let filterRow = NSStackView(views: [label("KIND"), kindPopup, label("SORT"), sortPopup, refreshButton, revealButton, NSView()])
-        filterRow.orientation = .horizontal
-        filterRow.alignment = .centerY
-        filterRow.spacing = 8
-
-        let scanRow = NSStackView(views: [spinner, stateLabel, timestampLabel, NSView(), summaryLabel])
+        let scanRow = NSStackView(views: [spinner, stateLabel, timestampLabel, NSView()])
         scanRow.orientation = .horizontal
         scanRow.alignment = .centerY
         scanRow.spacing = 8
 
-        let tableStack = NSStackView(views: [searchRow, filterRow, scanRow, statusLabel, table])
+        let scanStack = NSStackView(views: [scanRow, statusLabel, grantsLabel])
+        scanStack.orientation = .vertical
+        scanStack.spacing = 10
+
+        let scanSection = DashboardSectionView(
+            title: "Scan And Access",
+            subtitle: "Summary refresh state, deep scan status, and grant coverage.",
+            accessory: scanAccessory
+        )
+        scanSection.pinContent(scanStack)
+
+        let overviewGrid = AdaptiveGridView(minColumnWidth: 360, maxColumns: 2, rowSpacing: 12, columnSpacing: 12)
+        overviewGrid.setItems([breakdownSection, scanSection])
+
+        let searchRow = NSStackView(views: [label("Search"), searchField, label("Scope"), scopePopup])
+        searchRow.orientation = .horizontal
+        searchRow.alignment = .centerY
+        searchRow.spacing = 8
+
+        let filterRow = NSStackView(views: [label("Kind"), kindPopup, label("Sort"), sortPopup, NSView(), summaryLabel, revealButton])
+        filterRow.orientation = .horizontal
+        filterRow.alignment = .centerY
+        filterRow.spacing = 8
+
+        let tableStack = NSStackView(views: [searchRow, filterRow, table])
         tableStack.orientation = .vertical
         tableStack.spacing = 10
 
-        let itemsSection = DashboardSectionView(title: "Largest Files & Folders")
-        itemsSection.pinContent(tableStack, top: 38, bottom: 14)
+        let itemsSection = DashboardSectionView(
+            title: "Cleanup Targets",
+            subtitle: "Large files and folders, filtered by area, item type, and cleanup signal."
+        )
+        itemsSection.pinContent(tableStack)
 
-        let stack = NSStackView(views: [cards, accessSection, breakdownSection, itemsSection])
+        let stack = NSStackView(views: [summarySection, overviewGrid, itemsSection, accessSection])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let (_, documentView) = installVerticalScrollContainer(in: view)
         documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -20),
-            accessSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
-            itemsSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 280)
-        ])
+        accessSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
+        itemsSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 340).isActive = true
     }
 
     private func buildAccessSection() -> NSView {
@@ -192,7 +228,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             status.lineBreakMode = .byTruncatingMiddle
             protectedStatusLabels[scope] = status
 
-            let button = NSButton(title: "Grant…", target: self, action: #selector(protectedGrantPressed(_:)))
+            let button = NSButton(title: "Grant...", target: self, action: #selector(protectedGrantPressed(_:)))
             button.tag = index
             protectedButtons[scope] = button
 
@@ -245,8 +281,11 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         content.orientation = .vertical
         content.spacing = 12
 
-        let section = DashboardSectionView(title: "Access Controls")
-        section.pinContent(content, top: 38, bottom: 14)
+        let section = DashboardSectionView(
+            title: "Access Grants",
+            subtitle: "Protected folders and saved external locations only participate when explicitly enabled."
+        )
+        section.pinContent(content)
         return section
     }
 
@@ -257,6 +296,8 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         kindPopup.action = #selector(filtersChanged)
         sortPopup.target = self
         sortPopup.action = #selector(filtersChanged)
+        summaryRefreshButton.target = self
+        summaryRefreshButton.action = #selector(summaryRefreshPressed)
         refreshButton.target = self
         refreshButton.action = #selector(refreshPressed)
         revealButton.target = self
@@ -265,24 +306,30 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        field.font = .systemFont(ofSize: 12)
         field.textColor = BuoyChrome.secondaryTextColor
         return field
     }
 
     private func applyEmptyState() {
-        usedCard.set(value: "—", detail: "No scan yet")
-        explainedCard.set(value: "—", detail: "Run a scan")
-        cleanupCard.set(value: "—", detail: "No cleanup estimate")
-        systemCard.set(value: "—", detail: "No system estimate")
+        usedCard.set(value: "—", detail: "No scan yet", tone: .neutral)
+        availableCard.set(value: "—", detail: "Awaiting disk totals", tone: .neutral)
+        userDataCard.set(value: "—", detail: "Awaiting category breakdown", tone: .neutral)
+        reclaimableCard.set(value: "—", detail: "No cleanup estimate", tone: .neutral)
+        systemCard.set(value: "—", detail: "No system estimate", tone: .neutral)
         breakdownView.setBreakdown([], totalBytes: 0)
         breakdownLabel.stringValue = "No storage scan yet."
-        highlightsLabel.stringValue = "The storage view scans root, home, apps, caches, and developer folders so Finder-style “System Data” is less opaque."
+        highlightsLabel.stringValue = "The storage view scans root, home, apps, caches, and developer folders so Finder-style System Data is less opaque."
+        grantsLabel.stringValue = "Protected folders are off until you explicitly grant access."
         summaryLabel.stringValue = "No scan data"
         stateLabel.stringValue = "—"
         timestampLabel.stringValue = "—"
         revealButton.isEnabled = false
         table.tableView.reloadData()
+    }
+
+    @objc private func summaryRefreshPressed() {
+        startScan(mode: .summaryOnly)
     }
 
     @objc private func refreshPressed() {
@@ -356,7 +403,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         activeScanMode = mode
         spinner.startAnimation(nil)
         stateLabel.stringValue = mode == .deep ? "Deep Scan Running" : "Refreshing Summary"
-        statusLabel.stringValue = mode == .deep ? "Starting deep scan…" : "Refreshing storage summary…"
+        statusLabel.stringValue = mode == .deep ? "Starting deep scan..." : "Refreshing storage summary..."
         let accessSession = accessManager.beginAccessSession()
 
         scanner.scan(mode: mode, access: accessSession, progress: { [weak self] message in
@@ -416,42 +463,64 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     }
 
     private func updateSummaryCards(_ snapshot: StorageScanSnapshot, source: StorageSnapshotSource) {
-        let usedBytes = Int64(snapshot.disk.usedGB * 1_073_741_824.0)
-        let totalBytes = Int64(snapshot.disk.totalGB * 1_073_741_824.0)
+        let usedBytes = DashboardFormatters.storageBytes(from: snapshot.disk.usedGB)
+        let totalBytes = DashboardFormatters.storageBytes(from: snapshot.disk.totalGB)
+        let availableBytes = max(0, totalBytes - usedBytes)
         let systemAndHidden = snapshot.systemBytes + snapshot.unexplainedBytes
+        let userDataBytes = snapshot.rootBreakdown
+            .filter { summary in
+                switch summary.category {
+                case .users, .downloads, .documents, .media, .developer, .backups:
+                    return true
+                default:
+                    return false
+                }
+            }
+            .reduce(Int64(0)) { $0 + $1.sizeBytes }
 
         if source == .seed {
             usedCard.set(
                 value: DashboardFormatters.bytes(usedBytes),
-                detail: String(format: "APFS container %.0f%% of %@", snapshot.disk.usagePercent, DashboardFormatters.bytes(totalBytes))
+                detail: String(format: "APFS container %.0f%% of %@", snapshot.disk.usagePercent, DashboardFormatters.bytes(totalBytes)),
+                tone: .accent
             )
-            explainedCard.set(value: "—", detail: "Summary scan not ready yet")
-            cleanupCard.set(value: "—", detail: "Waiting for cleanup targets")
-            systemCard.set(value: "—", detail: "Waiting for system estimate")
+            availableCard.set(value: DashboardFormatters.bytes(availableBytes), detail: "Free inside the APFS container", tone: .accent)
+            userDataCard.set(value: "—", detail: "Summary scan not ready yet", tone: .neutral)
+            reclaimableCard.set(value: "—", detail: "Waiting for cleanup targets", tone: .neutral)
+            systemCard.set(value: "—", detail: "Waiting for system estimate", tone: .neutral)
             return
         }
 
         usedCard.set(
             value: DashboardFormatters.bytes(usedBytes),
-            detail: String(format: "APFS container %.0f%% of %@", snapshot.disk.usagePercent, DashboardFormatters.bytes(totalBytes))
+            detail: String(format: "APFS container %.0f%% of %@", snapshot.disk.usagePercent, DashboardFormatters.bytes(totalBytes)),
+            tone: snapshot.disk.usagePercent > 90 ? .warning : .accent
         )
-        explainedCard.set(
-            value: DashboardFormatters.bytes(snapshot.explainedBytes),
-            detail: snapshot.unexplainedBytes > 0
-                ? "\(DashboardFormatters.bytes(snapshot.unexplainedBytes)) still protected or opaque"
+        availableCard.set(
+            value: DashboardFormatters.bytes(availableBytes),
+            detail: "Free or purgeable capacity inside the disk container",
+            tone: availableBytes < DashboardFormatters.storageBytes(from: 20) ? .warning : .accent
+        )
+        userDataCard.set(
+            value: DashboardFormatters.bytes(userDataBytes),
+            detail: userDataBytes > 0
+                ? "Home data, downloads, media, backups, and developer folders"
                 : snapshot.scanMode == .summaryOnly
-                    ? "Summary refresh apportioned the remaining space to system or protected data"
-                    : "Deep scan fully accounted for used space"
+                    ? "Waiting for enough detail to separate user data"
+                    : "No large user-data areas surfaced",
+            tone: userDataBytes > 0 ? .accent : .neutral
         )
-        cleanupCard.set(
+        reclaimableCard.set(
             value: DashboardFormatters.bytes(snapshot.reclaimableBytes),
-            detail: snapshot.cleanupHighlights.isEmpty ? "No obvious cleanup targets surfaced" : "Downloads, caches, backups, and dev data"
+            detail: snapshot.cleanupHighlights.isEmpty ? "No obvious cleanup targets surfaced" : "Downloads, caches, backups, and developer data",
+            tone: snapshot.reclaimableBytes > 0 ? .warning : .neutral
         )
         systemCard.set(
             value: DashboardFormatters.bytes(systemAndHidden),
             detail: snapshot.scanMode == .summaryOnly
                 ? "Residual system data, hidden folders, and skipped protected paths"
-                : "System data, hidden folders, and unexplained usage"
+                : "System data, hidden folders, and unexplained usage",
+            tone: systemAndHidden > 0 ? .neutral : .accent
         )
     }
 
@@ -463,15 +532,15 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             return
         }
 
-        let breakdownTotal = max(snapshot.rootBreakdown.reduce(Int64(0)) { $0 + $1.sizeBytes }, 1)
-        breakdownView.setBreakdown(snapshot.rootBreakdown, totalBytes: breakdownTotal)
+        let totalBytes = max(DashboardFormatters.storageBytes(from: snapshot.disk.totalGB), 1)
+        breakdownView.setBreakdown(snapshot.rootBreakdown, totalBytes: totalBytes)
 
         let breakdownText = snapshot.rootBreakdown.prefix(4).map {
             "\($0.category.rawValue) \(DashboardFormatters.bytes($0.sizeBytes))"
-        }.joined(separator: " • ")
+        }.joined(separator: " | ")
 
         if snapshot.unexplainedBytes > 0 {
-            breakdownLabel.stringValue = "Accounted for \(DashboardFormatters.bytes(snapshot.explainedBytes)) of \(DashboardFormatters.bytes(Int64(snapshot.disk.usedGB * 1_073_741_824.0))). Remaining \(DashboardFormatters.bytes(snapshot.unexplainedBytes)) is likely APFS snapshots, purgeable space, or protected system data. \(breakdownText)"
+            breakdownLabel.stringValue = "Accounted for \(DashboardFormatters.bytes(snapshot.explainedBytes)) of \(DashboardFormatters.bytes(DashboardFormatters.storageBytes(from: snapshot.disk.usedGB))). Remaining \(DashboardFormatters.bytes(snapshot.unexplainedBytes)) is likely APFS snapshots, purgeable space, or protected system data. \(breakdownText)"
         } else if snapshot.scanMode == .summaryOnly {
             breakdownLabel.stringValue = "Summary refresh accounted for the used disk space by assigning the remaining gap to system or protected data. \(breakdownText)"
         } else {
@@ -480,10 +549,10 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
         let homeHotspots = snapshot.homeHighlights.prefix(3).map {
             "\(DashboardFormatters.abbreviatedPath($0.path)) \(DashboardFormatters.bytes($0.sizeBytes))"
-        }.joined(separator: " • ")
+        }.joined(separator: " | ")
         let cleanupHotspots = snapshot.cleanupHighlights.prefix(3).map {
             "\($0.name) \(DashboardFormatters.bytes($0.sizeBytes))"
-        }.joined(separator: " • ")
+        }.joined(separator: " | ")
 
         if homeHotspots.isEmpty && cleanupHotspots.isEmpty {
             highlightsLabel.stringValue = "No obvious large folders were surfaced."
@@ -546,7 +615,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             parts.append("Deep \(DashboardFormatters.timestamp(lastDeepScanAt))")
         }
 
-        return parts.joined(separator: " • ")
+        return parts.joined(separator: " | ")
     }
 
     private func defaultStatusText() -> String {
@@ -602,12 +671,12 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
                 protectedStatusLabels[scope]?.stringValue = isEnabled
                     ? "Enabled: \(savedText)"
                     : "Saved: \(savedText)"
-                protectedButtons[scope]?.title = "Change…"
+                protectedButtons[scope]?.title = "Change..."
             } else {
                 protectedStatusLabels[scope]?.stringValue = isEnabled
                     ? "Enabled but not granted yet"
                     : "Off"
-                protectedButtons[scope]?.title = "Grant…"
+                protectedButtons[scope]?.title = "Grant..."
             }
         }
 
@@ -618,14 +687,28 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
             customLocationsStatusLabel.stringValue = customEnabled
                 ? "Enabled but no saved locations"
                 : "No saved locations"
-            customLocationsButton.title = "Choose…"
+            customLocationsButton.title = "Choose..."
         } else {
-            let preview = customURLs.prefix(2).map { DashboardFormatters.abbreviatedPath($0.path) }.joined(separator: " • ")
-            let suffix = customURLs.count > 2 ? " • +\(customURLs.count - 2) more" : ""
+            let preview = customURLs.prefix(2).map { DashboardFormatters.abbreviatedPath($0.path) }.joined(separator: " | ")
+            let suffix = customURLs.count > 2 ? " | +\(customURLs.count - 2) more" : ""
             let label = "\(customURLs.count) saved location\(customURLs.count == 1 ? "" : "s"): \(preview)\(suffix)"
             customLocationsStatusLabel.stringValue = customEnabled ? "Enabled: \(label)" : "Saved: \(label)"
-            customLocationsButton.title = "Change…"
+            customLocationsButton.title = "Change..."
         }
+
+        let enabledProtected = StorageProtectedScope.allCases.filter { accessManager.isEnabled($0) }
+        let protectedSummary = enabledProtected.isEmpty
+            ? "No protected folders enabled"
+            : "Protected folders enabled: \(enabledProtected.map(\.title).joined(separator: ", "))"
+        let customSummary: String
+        if customURLs.isEmpty {
+            customSummary = customEnabled ? "custom locations enabled with no saved paths" : "no custom locations saved"
+        } else {
+            customSummary = customEnabled
+                ? "\(customURLs.count) custom location\(customURLs.count == 1 ? "" : "s") enabled"
+                : "\(customURLs.count) custom location\(customURLs.count == 1 ? "" : "s") saved but disabled"
+        }
+        grantsLabel.stringValue = "\(protectedSummary). \(customSummary)."
     }
 
     @objc private func protectedToggleChanged(_ sender: NSSwitch) {
@@ -916,65 +999,14 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     }
 }
 
-private final class StorageSummaryCardView: NSBox {
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let valueLabel = NSTextField(labelWithString: "—")
-    private let detailLabel = NSTextField(wrappingLabelWithString: "")
-
-    init(title: String) {
-        super.init(frame: .zero)
-        boxType = .custom
-        cornerRadius = 14
-        borderWidth = 1
-        borderColor = BuoyChrome.borderColor
-        fillColor = BuoyChrome.panelBackgroundColor
-
-        titleLabel.stringValue = title
-        titleLabel.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
-        titleLabel.textColor = BuoyChrome.secondaryTextColor
-        valueLabel.font = .monospacedDigitSystemFont(ofSize: 26, weight: .semibold)
-        valueLabel.textColor = BuoyChrome.primaryTextColor
-        detailLabel.font = .systemFont(ofSize: 11)
-        detailLabel.textColor = BuoyChrome.secondaryTextColor
-        detailLabel.maximumNumberOfLines = 0
-
-        let stack = NSStackView(views: [titleLabel, valueLabel, detailLabel])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        contentView?.addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: contentView!.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: contentView!.trailingAnchor, constant: -14),
-            stack.topAnchor.constraint(equalTo: contentView!.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: contentView!.bottomAnchor, constant: -14)
-        ])
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
-
-    func set(value: String, detail: String) {
-        valueLabel.stringValue = value
-        detailLabel.stringValue = detail
-    }
-}
-
 private final class StorageBreakdownView: NSView {
     private let barView = StorageStackedBarView()
-    private let legendStack = NSStackView()
+    private let legendGrid = AdaptiveGridView(minColumnWidth: 160, maxColumns: 4, rowSpacing: 6, columnSpacing: 10)
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        legendStack.orientation = .horizontal
-        legendStack.alignment = .centerY
-        legendStack.spacing = 10
-        legendStack.distribution = .gravityAreas
-
-        let stack = NSStackView(views: [barView, legendStack])
+        let stack = NSStackView(views: [barView, legendGrid])
         stack.orientation = .vertical
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -995,14 +1027,16 @@ private final class StorageBreakdownView: NSView {
 
     func setBreakdown(_ breakdown: [StorageCategorySummary], totalBytes: Int64) {
         barView.updateSegments(breakdown, totalBytes: totalBytes)
-        legendStack.arrangedSubviews.forEach { view in
-            legendStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
-        }
+        var chips: [NSView] = breakdown.map { StorageLegendChip(summary: $0) }
 
-        for segment in breakdown {
-            legendStack.addArrangedSubview(StorageLegendChip(summary: segment))
+        let accountedBytes = breakdown.reduce(Int64(0)) { $0 + $1.sizeBytes }
+        let remainingBytes = max(0, totalBytes - accountedBytes)
+        if remainingBytes > 0 {
+            chips.append(
+                StorageLegendChip(label: "Available \(DashboardFormatters.bytes(remainingBytes))", color: BuoyChrome.gridColor)
+            )
         }
+        legendGrid.setItems(chips)
     }
 }
 
@@ -1046,22 +1080,29 @@ private final class StorageStackedBarView: NSView {
 }
 
 private final class StorageLegendChip: NSView {
-    init(summary: StorageCategorySummary) {
+    convenience init(summary: StorageCategorySummary) {
+        self.init(
+            label: "\(summary.category.rawValue) \(DashboardFormatters.bytes(summary.sizeBytes))",
+            color: StoragePalette.color(for: summary.category)
+        )
+    }
+
+    init(label: String, color: NSColor) {
         super.init(frame: .zero)
 
         let swatch = NSView()
         swatch.wantsLayer = true
-        swatch.layer?.backgroundColor = StoragePalette.color(for: summary.category).cgColor
+        swatch.layer?.backgroundColor = color.cgColor
         swatch.layer?.cornerRadius = 4
         swatch.translatesAutoresizingMaskIntoConstraints = false
         swatch.widthAnchor.constraint(equalToConstant: 8).isActive = true
         swatch.heightAnchor.constraint(equalToConstant: 8).isActive = true
 
-        let label = NSTextField(labelWithString: "\(summary.category.rawValue) \(DashboardFormatters.bytes(summary.sizeBytes))")
-        label.font = .systemFont(ofSize: 11)
-        label.textColor = BuoyChrome.secondaryTextColor
+        let textLabel = NSTextField(labelWithString: label)
+        textLabel.font = .systemFont(ofSize: 11)
+        textLabel.textColor = BuoyChrome.secondaryTextColor
 
-        let stack = NSStackView(views: [swatch, label])
+        let stack = NSStackView(views: [swatch, textLabel])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
@@ -1084,27 +1125,27 @@ private enum StoragePalette {
     static func color(for category: StorageCategory) -> NSColor {
         switch category {
         case .applications:
-            return NSColor(hex: 0xC08A4A)
+            return NSColor(hex: 0xB4844B)
         case .users:
-            return NSColor(hex: 0x5A86B5)
+            return NSColor(hex: 0x627D97)
         case .downloads:
-            return NSColor(hex: 0x6FA36A)
+            return NSColor(hex: 0x6E9369)
         case .documents:
-            return NSColor(hex: 0x5C9A92)
+            return NSColor(hex: 0x5C8F88)
         case .media:
-            return NSColor(hex: 0xB37378)
+            return NSColor(hex: 0xA86E63)
         case .developer:
-            return NSColor(hex: 0xBEA24C)
+            return NSColor(hex: 0xA99652)
         case .backups:
-            return NSColor(hex: 0x8E77B1)
+            return NSColor(hex: 0x8D7B63)
         case .caches:
-            return NSColor(hex: 0x6C9F8A)
+            return NSColor(hex: 0x718A73)
         case .library:
-            return NSColor(hex: 0x6A78A6)
+            return NSColor(hex: 0x65748C)
         case .system:
-            return NSColor(hex: 0xB05C55)
+            return NSColor(hex: 0xA45D52)
         case .hidden:
-            return NSColor(hex: 0x7C7A72)
+            return NSColor(hex: 0x7B7A73)
         case .other:
             return BuoyChrome.secondaryTextColor
         }

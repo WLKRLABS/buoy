@@ -18,6 +18,11 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
     private let sortPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let summaryLabel = NSTextField(labelWithString: "0 processes")
     private let timestampLabel = NSTextField(labelWithString: "—")
+    private let visibleCard = DashboardMetricCardView(title: "Visible")
+    private let topCPUCard = DashboardMetricCardView(title: "Top CPU")
+    private let topMemoryCard = DashboardMetricCardView(title: "Top Memory")
+    private let userCard = DashboardMetricCardView(title: "Users")
+    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
     private let table = DashboardTableContainer(columns: [
         (Column.name, "Process", 240),
         (Column.pid, "PID", 80),
@@ -34,7 +39,7 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
 
     public override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     public override func viewDidLoad() {
@@ -44,6 +49,8 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
     }
 
     private func buildLayout() {
+        let (_, documentView) = installVerticalScrollContainer(in: view)
+
         searchField.placeholderString = "Search process name"
         searchField.delegate = self
 
@@ -63,57 +70,55 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
         table.tableView.delegate = self
         table.tableView.dataSource = self
 
-        let searchRow = NSStackView(views: [label("SEARCH"), searchField])
+        summaryGrid.setItems([visibleCard, topCPUCard, topMemoryCard, userCard])
+
+        let summarySection = DashboardSectionView(
+            title: "Live Process Summary",
+            subtitle: "Current workload, top offenders, and operator scope."
+        )
+        summarySection.pinContent(summaryGrid)
+
+        let searchRow = NSStackView(views: [label("Search"), searchField, label("User"), userFilter])
         searchRow.orientation = .horizontal
         searchRow.alignment = .centerY
         searchRow.spacing = 8
 
-        let filtersRow = NSStackView(views: [label("USER"), userFilter, label("SORT"), sortPopup, NSView()])
+        let filtersRow = NSStackView(views: [label("Sort"), sortPopup, NSView(), summaryLabel, timestampLabel])
         filtersRow.orientation = .horizontal
         filtersRow.alignment = .centerY
         filtersRow.spacing = 8
 
-        let metaRow = NSStackView(views: [summaryLabel, NSView(), timestampLabel])
-        metaRow.orientation = .horizontal
-        metaRow.alignment = .centerY
-
-        let controlsStack = NSStackView(views: [searchRow, filtersRow, metaRow])
+        let controlsStack = NSStackView(views: [searchRow, filtersRow])
         controlsStack.orientation = .vertical
         controlsStack.spacing = 10
 
-        let controlsSurface = NSView()
-        controlsSurface.applyBuoySurface(cornerRadius: 14, fillColor: BuoyChrome.elevatedBackgroundColor)
-        controlsSurface.translatesAutoresizingMaskIntoConstraints = false
-        controlsSurface.addSubview(controlsStack)
-        controlsStack.translatesAutoresizingMaskIntoConstraints = false
+        let filtersSection = DashboardSectionView(
+            title: "Filters",
+            subtitle: "Constrain the process list before drilling into the table."
+        )
+        filtersSection.pinContent(controlsStack)
 
-        NSLayoutConstraint.activate([
-            controlsStack.leadingAnchor.constraint(equalTo: controlsSurface.leadingAnchor, constant: 14),
-            controlsStack.trailingAnchor.constraint(equalTo: controlsSurface.trailingAnchor, constant: -14),
-            controlsStack.topAnchor.constraint(equalTo: controlsSurface.topAnchor, constant: 14),
-            controlsStack.bottomAnchor.constraint(equalTo: controlsSurface.bottomAnchor, constant: -14)
-        ])
-
-        let tableSection = DashboardSectionView(title: "Active Processes")
+        let tableSection = DashboardSectionView(
+            title: "Process Table",
+            subtitle: "Sorted by live CPU, memory, PID, name, or user."
+        )
         tableSection.pinContent(table)
 
-        let stack = NSStackView(views: [controlsSurface, tableSection])
+        let stack = NSStackView(views: [summarySection, filtersSection, tableSection])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20)
-        ])
+        tableSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
     }
 
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        field.font = .systemFont(ofSize: 12)
         field.textColor = BuoyChrome.secondaryTextColor
         return field
     }
@@ -122,7 +127,7 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
         self.snapshot = snapshot
         refreshUserChoices()
         applyFilters()
-        timestampLabel.stringValue = "LAST UPDATED \(DashboardFormatters.timestamp(snapshot.capturedAt))"
+        timestampLabel.stringValue = "Updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
     }
 
     private func refreshUserChoices() {
@@ -175,8 +180,52 @@ public final class ProcessesViewController: NSViewController, DashboardConsumer,
             }
         }
 
-        summaryLabel.stringValue = "\(visibleRows.count) OF \(snapshot.processes.count) PROCESSES"
+        summaryLabel.stringValue = "\(visibleRows.count) of \(snapshot.processes.count) visible"
+        updateSummaryCards()
         table.tableView.reloadData()
+    }
+
+    private func updateSummaryCards() {
+        visibleCard.set(
+            value: "\(visibleRows.count)",
+            detail: "\(snapshot.processes.count) total processes",
+            tone: .accent
+        )
+
+        if let leader = visibleRows.max(by: { $0.cpuPercent < $1.cpuPercent }) {
+            topCPUCard.set(
+                value: String(format: "%.1f%%", leader.cpuPercent),
+                detail: leader.name,
+                tone: leader.cpuPercent > 80 ? .warning : .accent
+            )
+        } else {
+            topCPUCard.set(value: "—", detail: "No process data", tone: .neutral)
+        }
+
+        if let leader = visibleRows.max(by: { $0.memoryMB < $1.memoryMB }) {
+            topMemoryCard.set(
+                value: String(format: "%.1f MB", leader.memoryMB),
+                detail: leader.name,
+                tone: .accent
+            )
+        } else {
+            topMemoryCard.set(value: "—", detail: "No process data", tone: .neutral)
+        }
+
+        let userCount = Set(visibleRows.map(\.user)).count
+        userCard.set(
+            value: "\(userCount)",
+            detail: selectedUserLabel(),
+            tone: .accent
+        )
+    }
+
+    private func selectedUserLabel() -> String {
+        let title = userFilter.titleOfSelectedItem ?? "All Users"
+        if title == "All Users" {
+            return "Unique users in view"
+        }
+        return title
     }
 
     public func numberOfRows(in tableView: NSTableView) -> Int {

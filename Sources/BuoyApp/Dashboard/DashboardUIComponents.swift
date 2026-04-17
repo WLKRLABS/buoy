@@ -1,71 +1,148 @@
 import AppKit
 import Foundation
 
+enum BuoySpacing {
+    static let xSmall: CGFloat = 4
+    static let small: CGFloat = 8
+    static let medium: CGFloat = 12
+    static let large: CGFloat = 16
+    static let xLarge: CGFloat = 24
+    static let xxLarge: CGFloat = 32
+}
+
+enum DashboardMetricTone {
+    case neutral
+    case accent
+    case warning
+    case critical
+
+    var color: NSColor {
+        switch self {
+        case .neutral:
+            return BuoyChrome.secondaryTextColor
+        case .accent:
+            return BuoyChrome.accentColor
+        case .warning:
+            return BuoyChrome.warningColor
+        case .critical:
+            return BuoyChrome.criticalColor
+        }
+    }
+
+    var fillColor: NSColor {
+        switch self {
+        case .neutral:
+            return BuoyChrome.accentFillColor.withAlphaComponent(0.38)
+        case .accent:
+            return BuoyChrome.accentFillColor
+        case .warning:
+            return BuoyChrome.warningFillColor
+        case .critical:
+            return BuoyChrome.criticalFillColor
+        }
+    }
+}
+
 enum BuoyChrome {
     static let windowBackgroundColor = dynamicColor(
         name: "BuoyWindowBackground",
-        light: 0xEFE9DB,
-        dark: 0x0F1214
+        light: 0xEEF1EF,
+        dark: 0x111416
     )
     static let sidebarBackgroundColor = dynamicColor(
         name: "BuoySidebarBackground",
-        light: 0xE3DCCB,
-        dark: 0x0A0D0F
+        light: 0xE5EAE7,
+        dark: 0x161A1C
     )
     static let panelBackgroundColor = dynamicColor(
         name: "BuoyPanelBackground",
-        light: 0xFAF5E8,
-        dark: 0x171C20
+        light: 0xF9FBFA,
+        dark: 0x1B2022
     )
     static let elevatedBackgroundColor = dynamicColor(
         name: "BuoyElevatedBackground",
-        light: 0xF5EFDD,
-        dark: 0x1D2328
+        light: 0xF4F7F5,
+        dark: 0x202629
     )
     static let buttonBackgroundColor = dynamicColor(
         name: "BuoyButtonBackground",
-        light: 0xF0E7D2,
-        dark: 0x11161A
+        light: 0xEDF2EF,
+        dark: 0x181D1F
     )
     static let contentBackgroundColor = dynamicColor(
         name: "BuoyContentBackground",
-        light: 0xF7F2E3,
-        dark: 0x12171B
+        light: 0xF6F8F7,
+        dark: 0x181D1F
+    )
+    static let tableBackgroundColor = dynamicColor(
+        name: "BuoyTableBackground",
+        light: 0xFCFDFC,
+        dark: 0x15191B
     )
     static let borderColor = dynamicColor(
         name: "BuoyBorder",
-        light: 0xB7AE98,
-        dark: 0x333A41
+        light: 0xCAD2CE,
+        dark: 0x2F373A
+    )
+    static let separatorColor = dynamicColor(
+        name: "BuoySeparator",
+        light: 0xD7DEDB,
+        dark: 0x293034
     )
     static let gridColor = dynamicColor(
         name: "BuoyGrid",
-        light: 0xCBC1AB,
-        dark: 0x2A3137
+        light: 0xD8DEDB,
+        dark: 0x262D30
     )
     static let accentColor = dynamicColor(
         name: "BuoyAccent",
-        light: 0x587244,
-        dark: 0x9ABB72
+        light: 0x4F6D58,
+        dark: 0xA5C191
     )
     static let accentFillColor = dynamicColor(
         name: "BuoyAccentFill",
-        light: 0xD5E0C6,
-        dark: 0x23321E
+        light: 0xDCE7DC,
+        dark: 0x253128
     )
     static let accentBorderColor = dynamicColor(
         name: "BuoyAccentBorder",
-        light: 0x748C5E,
-        dark: 0x6A8452
+        light: 0x7F9B82,
+        dark: 0x64775D
+    )
+    static let warningColor = dynamicColor(
+        name: "BuoyWarning",
+        light: 0xA46E27,
+        dark: 0xD0AE6A
+    )
+    static let warningFillColor = dynamicColor(
+        name: "BuoyWarningFill",
+        light: 0xF0E2C6,
+        dark: 0x362A18
+    )
+    static let criticalColor = dynamicColor(
+        name: "BuoyCritical",
+        light: 0xA1554B,
+        dark: 0xD68B7E
+    )
+    static let criticalFillColor = dynamicColor(
+        name: "BuoyCriticalFill",
+        light: 0xF0D6D2,
+        dark: 0x33211E
     )
     static let primaryTextColor = dynamicColor(
         name: "BuoyPrimaryText",
-        light: 0x1D2327,
-        dark: 0xE8E4DA
+        light: 0x1C2325,
+        dark: 0xE8ECE9
     )
     static let secondaryTextColor = dynamicColor(
         name: "BuoySecondaryText",
-        light: 0x6B6A5F,
-        dark: 0x99A29B
+        light: 0x66706C,
+        dark: 0x99A49F
+    )
+    static let tertiaryTextColor = dynamicColor(
+        name: "BuoyTertiaryText",
+        light: 0x8A9591,
+        dark: 0x7A8681
     )
 
     static func applyWindowBackground(to view: NSView) {
@@ -92,16 +169,40 @@ extension NSColor {
 
 extension NSView {
     func applyBuoySurface(
-        cornerRadius: CGFloat = 14,
+        cornerRadius: CGFloat = 10,
         fillColor: NSColor = BuoyChrome.panelBackgroundColor,
-        borderColor: NSColor = BuoyChrome.borderColor
+        borderColor: NSColor = BuoyChrome.borderColor,
+        borderWidth: CGFloat = 1
     ) {
         wantsLayer = true
         layer?.cornerRadius = cornerRadius
-        layer?.borderWidth = 1
+        layer?.borderWidth = borderWidth
         layer?.borderColor = borderColor.cgColor
         layer?.backgroundColor = fillColor.cgColor
         layer?.masksToBounds = true
+    }
+
+    func pinEdges(
+        to other: NSView,
+        insets: NSEdgeInsets = NSEdgeInsetsZero
+    ) {
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            leadingAnchor.constraint(equalTo: other.leadingAnchor, constant: insets.left),
+            trailingAnchor.constraint(equalTo: other.trailingAnchor, constant: -insets.right),
+            topAnchor.constraint(equalTo: other.topAnchor, constant: insets.top),
+            bottomAnchor.constraint(equalTo: other.bottomAnchor, constant: -insets.bottom)
+        ])
+    }
+}
+
+extension NSFont {
+    static func buoySectionLabelFont() -> NSFont {
+        .monospacedSystemFont(ofSize: 11, weight: .semibold)
+    }
+
+    static func buoyMetricValueFont() -> NSFont {
+        .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
     }
 }
 
@@ -115,6 +216,7 @@ func installVerticalScrollContainer(in hostView: NSView) -> (scrollView: NSScrol
     scrollView.drawsBackground = false
     scrollView.hasVerticalScroller = true
     scrollView.autohidesScrollers = true
+    scrollView.scrollerStyle = .overlay
     hostView.addSubview(scrollView)
 
     let documentView = FlippedContentView()
@@ -226,120 +328,144 @@ final class AdaptiveGridView: NSView {
     }
 }
 
-final class SidebarSectionButton: NSButton {
-    private let baseTitle: String
-    private let symbolName: String
+final class DashboardMetricCardView: NSView {
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let valueLabel = NSTextField(labelWithString: "—")
+    private let detailLabel = NSTextField(wrappingLabelWithString: "")
+    private let accentStrip = NSView()
 
-    var compactMode = false {
-        didSet { refreshLayoutMode() }
-    }
-
-    var isSectionSelected = false {
-        didSet { refreshAppearance() }
-    }
-
-    init(title: String, symbol: String) {
-        self.baseTitle = title
-        self.symbolName = symbol
+    init(title: String, tone: DashboardMetricTone = .accent) {
         super.init(frame: .zero)
+        applyBuoySurface()
 
-        setButtonType(.momentaryPushIn)
-        isBordered = false
-        image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
-        imageScaling = .scaleProportionallyDown
-        bezelStyle = .shadowlessSquare
-        focusRingType = .none
-        contentTintColor = BuoyChrome.secondaryTextColor
-        translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: 42).isActive = true
-        refreshLayoutMode()
+        titleLabel.stringValue = title.uppercased()
+        titleLabel.font = .buoySectionLabelFont()
+        titleLabel.textColor = BuoyChrome.secondaryTextColor
+
+        valueLabel.font = .buoyMetricValueFont()
+        valueLabel.textColor = BuoyChrome.primaryTextColor
+
+        detailLabel.font = .systemFont(ofSize: 12)
+        detailLabel.textColor = BuoyChrome.secondaryTextColor
+        detailLabel.maximumNumberOfLines = 2
+
+        accentStrip.wantsLayer = true
+        accentStrip.layer?.cornerRadius = 1.5
+
+        let stack = NSStackView(views: [titleLabel, valueLabel, detailLabel])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(accentStrip)
+        addSubview(stack)
+
+        accentStrip.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(greaterThanOrEqualToConstant: 116),
+            accentStrip.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            accentStrip.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            accentStrip.topAnchor.constraint(equalTo: topAnchor, constant: 12),
+            accentStrip.heightAnchor.constraint(equalToConstant: 3),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            stack.topAnchor.constraint(equalTo: accentStrip.bottomAnchor, constant: 14),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
+        ])
+
+        set(value: "—", detail: "", tone: tone)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    override var acceptsFirstResponder: Bool {
-        true
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        refreshAppearance()
-    }
-
-    private func refreshLayoutMode() {
-        title = compactMode ? "" : baseTitle.uppercased()
-        imagePosition = compactMode ? .imageOnly : .imageLeading
-        alignment = compactMode ? .center : .left
-        font = compactMode
-            ? .systemFont(ofSize: 13, weight: .semibold)
-            : .monospacedSystemFont(ofSize: 11, weight: .semibold)
-        refreshAppearance()
-    }
-
-    private func refreshAppearance() {
-        applyBuoySurface(
-            cornerRadius: 10,
-            fillColor: isSectionSelected ? BuoyChrome.accentFillColor : BuoyChrome.buttonBackgroundColor,
-            borderColor: isSectionSelected ? BuoyChrome.accentBorderColor : BuoyChrome.borderColor
-        )
-        contentTintColor = isSectionSelected ? BuoyChrome.accentColor : BuoyChrome.secondaryTextColor
-
-        let textColor = isSectionSelected ? BuoyChrome.primaryTextColor : BuoyChrome.secondaryTextColor
-        attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: font ?? NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: textColor,
-                .kern: 0.6
-            ]
-        )
+    func set(value: String, detail: String, tone: DashboardMetricTone = .accent) {
+        valueLabel.stringValue = value
+        detailLabel.stringValue = detail
+        accentStrip.layer?.backgroundColor = tone.color.cgColor
     }
 }
 
-final class DashboardSectionView: NSBox {
-    init(title: String) {
+final class DashboardSectionView: NSView {
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let subtitleLabel = NSTextField(wrappingLabelWithString: "")
+    private let divider = NSView()
+    private let headerStack = NSStackView()
+    private let titleStack = NSStackView()
+    private let accessoryContainer = NSView()
+
+    init(title: String, subtitle: String? = nil, accessory: NSView? = nil) {
         super.init(frame: .zero)
-        boxType = .custom
-        cornerRadius = 16
-        borderWidth = 1
-        borderColor = BuoyChrome.borderColor
-        fillColor = BuoyChrome.panelBackgroundColor
-        titlePosition = .noTitle
+        applyBuoySurface()
 
-        let label = NSTextField(labelWithString: title.uppercased())
-        label.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
-        label.textColor = BuoyChrome.secondaryTextColor
-        label.translatesAutoresizingMaskIntoConstraints = false
-        contentView?.addSubview(label)
+        titleLabel.stringValue = title.uppercased()
+        titleLabel.font = .buoySectionLabelFont()
+        titleLabel.textColor = BuoyChrome.secondaryTextColor
 
-        let rule = NSView()
-        rule.wantsLayer = true
-        rule.layer?.backgroundColor = BuoyChrome.borderColor.cgColor
-        rule.translatesAutoresizingMaskIntoConstraints = false
-        contentView?.addSubview(rule)
+        subtitleLabel.stringValue = subtitle ?? ""
+        subtitleLabel.font = .systemFont(ofSize: 12)
+        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
+        subtitleLabel.maximumNumberOfLines = 2
+        subtitleLabel.isHidden = subtitle == nil
+
+        divider.wantsLayer = true
+        divider.layer?.backgroundColor = BuoyChrome.separatorColor.cgColor
+
+        titleStack.orientation = .vertical
+        titleStack.alignment = .leading
+        titleStack.spacing = 2
+        titleStack.addArrangedSubview(titleLabel)
+        titleStack.addArrangedSubview(subtitleLabel)
+
+        headerStack.orientation = .horizontal
+        headerStack.alignment = .centerY
+        headerStack.spacing = 12
+        headerStack.translatesAutoresizingMaskIntoConstraints = false
+        headerStack.addArrangedSubview(titleStack)
+        headerStack.addArrangedSubview(NSView())
+        headerStack.addArrangedSubview(accessoryContainer)
+
+        accessoryContainer.translatesAutoresizingMaskIntoConstraints = false
+        divider.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(headerStack)
+        addSubview(divider)
 
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: contentView!.leadingAnchor, constant: 16),
-            label.topAnchor.constraint(equalTo: contentView!.topAnchor, constant: 14),
-            rule.leadingAnchor.constraint(equalTo: label.trailingAnchor, constant: 10),
-            rule.trailingAnchor.constraint(equalTo: contentView!.trailingAnchor, constant: -16),
-            rule.centerYAnchor.constraint(equalTo: label.centerYAnchor),
-            rule.heightAnchor.constraint(equalToConstant: 1)
+            headerStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            headerStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            headerStack.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            divider.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            divider.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 12),
+            divider.heightAnchor.constraint(equalToConstant: 1)
         ])
+
+        setAccessory(accessory)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    func pinContent(_ child: NSView, top: CGFloat = 40, bottom: CGFloat = 16) {
+    func setAccessory(_ accessory: NSView?) {
+        accessoryContainer.subviews.forEach { $0.removeFromSuperview() }
+        guard let accessory else {
+            accessoryContainer.isHidden = true
+            return
+        }
+
+        accessoryContainer.isHidden = false
+        accessoryContainer.addSubview(accessory)
+        accessory.pinEdges(to: accessoryContainer)
+    }
+
+    func pinContent(_ child: NSView, top: CGFloat = 50, bottom: CGFloat = 16) {
+        addSubview(child)
         child.translatesAutoresizingMaskIntoConstraints = false
-        contentView?.addSubview(child)
         NSLayoutConstraint.activate([
-            child.leadingAnchor.constraint(equalTo: contentView!.leadingAnchor, constant: 16),
-            child.trailingAnchor.constraint(equalTo: contentView!.trailingAnchor, constant: -16),
-            child.topAnchor.constraint(equalTo: contentView!.topAnchor, constant: top),
-            child.bottomAnchor.constraint(equalTo: contentView!.bottomAnchor, constant: -bottom)
+            child.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            child.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            child.topAnchor.constraint(equalTo: topAnchor, constant: top),
+            child.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -bottom)
         ])
     }
 }
@@ -350,36 +476,39 @@ final class DashboardTableContainer: NSView {
 
     init(columns: [(id: NSUserInterfaceItemIdentifier, title: String, width: CGFloat)]) {
         super.init(frame: .zero)
+        applyBuoySurface(cornerRadius: 8, fillColor: BuoyChrome.tableBackgroundColor)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
         addSubview(scrollView)
 
         tableView.usesAlternatingRowBackgroundColors = false
         tableView.backgroundColor = .clear
-        tableView.gridStyleMask = [.solidHorizontalGridLineMask, .solidVerticalGridLineMask]
+        tableView.gridStyleMask = [.solidHorizontalGridLineMask]
         tableView.gridColor = BuoyChrome.gridColor
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
-        tableView.rowHeight = 28
+        tableView.rowHeight = 30
         tableView.allowsEmptySelection = true
         tableView.rowSizeStyle = .default
+        tableView.selectionHighlightStyle = .regular
         tableView.headerView = NSTableHeaderView()
 
         for column in columns {
             let tableColumn = NSTableColumn(identifier: column.id)
-            tableColumn.title = column.title.uppercased()
+            tableColumn.title = column.title
             tableColumn.width = column.width
             tableColumn.minWidth = min(column.width, 80)
             tableColumn.headerCell.alignment = .left
-            tableColumn.headerCell.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
+            tableColumn.headerCell.font = .systemFont(ofSize: 11, weight: .semibold)
             tableView.addTableColumn(tableColumn)
         }
 
         scrollView.documentView = tableView
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.contentBackgroundColor)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -439,5 +568,9 @@ enum DashboardFormatters {
             return "~" + path.dropFirst(home.count)
         }
         return path
+    }
+
+    static func storageBytes(from gigabytes: Double) -> Int64 {
+        Int64(gigabytes * 1_073_741_824.0)
     }
 }

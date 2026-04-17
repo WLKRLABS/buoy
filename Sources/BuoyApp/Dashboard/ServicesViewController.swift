@@ -19,6 +19,11 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
     private let locationFilter = NSPopUpButton(frame: .zero, pullsDown: false)
     private let summaryLabel = NSTextField(labelWithString: "0 services")
     private let timestampLabel = NSTextField(labelWithString: "—")
+    private let visibleCard = DashboardMetricCardView(title: "Visible")
+    private let runningCard = DashboardMetricCardView(title: "Running")
+    private let disabledCard = DashboardMetricCardView(title: "Disabled")
+    private let thirdPartyCard = DashboardMetricCardView(title: "Third-Party")
+    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
     private let table = DashboardTableContainer(columns: [
         (Column.group, "Category", 135),
         (Column.label, "Service", 220),
@@ -36,7 +41,7 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
 
     public override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     public override func viewDidLoad() {
@@ -46,6 +51,8 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
     }
 
     private func buildLayout() {
+        let (_, documentView) = installVerticalScrollContainer(in: view)
+
         searchField.placeholderString = "Search service or plist"
         searchField.delegate = self
 
@@ -72,57 +79,55 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
         table.tableView.delegate = self
         table.tableView.dataSource = self
 
-        let searchRow = NSStackView(views: [label("SEARCH"), searchField])
+        summaryGrid.setItems([visibleCard, runningCard, disabledCard, thirdPartyCard])
+
+        let summarySection = DashboardSectionView(
+            title: "Service Summary",
+            subtitle: "Running state, boot behavior, and third-party footprint."
+        )
+        summarySection.pinContent(summaryGrid)
+
+        let searchRow = NSStackView(views: [label("Search"), searchField, label("Status"), statusFilter])
         searchRow.orientation = .horizontal
         searchRow.alignment = .centerY
         searchRow.spacing = 8
 
-        let filtersRow = NSStackView(views: [label("STATUS"), statusFilter, label("LOCATION"), locationFilter, NSView()])
-        filtersRow.orientation = .horizontal
-        filtersRow.alignment = .centerY
-        filtersRow.spacing = 8
+        let filterRow = NSStackView(views: [label("Location"), locationFilter, NSView(), summaryLabel, timestampLabel])
+        filterRow.orientation = .horizontal
+        filterRow.alignment = .centerY
+        filterRow.spacing = 8
 
-        let metaRow = NSStackView(views: [summaryLabel, NSView(), timestampLabel])
-        metaRow.orientation = .horizontal
-        metaRow.alignment = .centerY
+        let filterStack = NSStackView(views: [searchRow, filterRow])
+        filterStack.orientation = .vertical
+        filterStack.spacing = 10
 
-        let controlsStack = NSStackView(views: [searchRow, filtersRow, metaRow])
-        controlsStack.orientation = .vertical
-        controlsStack.spacing = 10
+        let filtersSection = DashboardSectionView(
+            title: "Filters",
+            subtitle: "Narrow launchd services by state and install location."
+        )
+        filtersSection.pinContent(filterStack)
 
-        let controlsSurface = NSView()
-        controlsSurface.applyBuoySurface(cornerRadius: 14, fillColor: BuoyChrome.elevatedBackgroundColor)
-        controlsSurface.translatesAutoresizingMaskIntoConstraints = false
-        controlsSurface.addSubview(controlsStack)
-        controlsStack.translatesAutoresizingMaskIntoConstraints = false
-
-        NSLayoutConstraint.activate([
-            controlsStack.leadingAnchor.constraint(equalTo: controlsSurface.leadingAnchor, constant: 14),
-            controlsStack.trailingAnchor.constraint(equalTo: controlsSurface.trailingAnchor, constant: -14),
-            controlsStack.topAnchor.constraint(equalTo: controlsSurface.topAnchor, constant: 14),
-            controlsStack.bottomAnchor.constraint(equalTo: controlsSurface.bottomAnchor, constant: -14)
-        ])
-
-        let tableSection = DashboardSectionView(title: "Launchd Services")
+        let tableSection = DashboardSectionView(
+            title: "Launchd Table",
+            subtitle: "Boot state, live process details, and on-disk plist location."
+        )
         tableSection.pinContent(table)
 
-        let stack = NSStackView(views: [controlsSurface, tableSection])
+        let stack = NSStackView(views: [summarySection, filtersSection, tableSection])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20)
-        ])
+        tableSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
     }
 
     private func label(_ text: String) -> NSTextField {
         let field = NSTextField(labelWithString: text)
-        field.font = .monospacedSystemFont(ofSize: 11, weight: .semibold)
+        field.font = .systemFont(ofSize: 12)
         field.textColor = BuoyChrome.secondaryTextColor
         return field
     }
@@ -130,7 +135,7 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {
         self.snapshot = snapshot
         applyFilters()
-        timestampLabel.stringValue = "LAST UPDATED \(DashboardFormatters.timestamp(snapshot.capturedAt))"
+        timestampLabel.stringValue = "Updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
     }
 
     @objc private func filtersChanged() {
@@ -179,8 +184,38 @@ public final class ServicesViewController: NSViewController, DashboardConsumer, 
             return $0.group.rawValue.localizedCaseInsensitiveCompare($1.group.rawValue) == .orderedAscending
         }
 
-        summaryLabel.stringValue = "\(visibleRows.count) OF \(snapshot.services.count) SERVICES"
+        summaryLabel.stringValue = "\(visibleRows.count) of \(snapshot.services.count) visible"
+        updateSummaryCards()
         table.tableView.reloadData()
+    }
+
+    private func updateSummaryCards() {
+        visibleCard.set(
+            value: "\(visibleRows.count)",
+            detail: "\(snapshot.services.count) total services",
+            tone: .accent
+        )
+
+        let runningCount = visibleRows.filter { $0.status == .running }.count
+        runningCard.set(
+            value: "\(runningCount)",
+            detail: "Running now",
+            tone: runningCount > 0 ? .accent : .neutral
+        )
+
+        let disabledCount = visibleRows.filter { $0.status == .disabled }.count
+        disabledCard.set(
+            value: "\(disabledCount)",
+            detail: "Disabled or blocked",
+            tone: disabledCount > 0 ? .warning : .accent
+        )
+
+        let thirdPartyCount = visibleRows.filter { $0.group == .thirdParty }.count
+        thirdPartyCard.set(
+            value: "\(thirdPartyCount)",
+            detail: "Third-party services",
+            tone: thirdPartyCount > 0 ? .accent : .neutral
+        )
     }
 
     public func numberOfRows(in tableView: NSTableView) -> Int {

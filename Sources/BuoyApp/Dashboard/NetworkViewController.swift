@@ -19,8 +19,13 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
         static let status = NSUserInterfaceItemIdentifier("status")
     }
 
-    private let summaryLabel = NSTextField(labelWithString: "0 listeners • 0 interfaces")
+    private let summaryLabel = NSTextField(labelWithString: "0 listeners | 0 interfaces")
     private let timestampLabel = NSTextField(labelWithString: "—")
+    private let listenerCard = DashboardMetricCardView(title: "Listeners")
+    private let interfaceCard = DashboardMetricCardView(title: "Interfaces")
+    private let addressCard = DashboardMetricCardView(title: "Primary IPv4")
+    private let protoCard = DashboardMetricCardView(title: "Protocols")
+    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
     private let portsTable = DashboardTableContainer(columns: [
         (PortColumn.service, "Service", 160),
         (PortColumn.proto, "Proto", 80),
@@ -41,7 +46,7 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
 
     public override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     public override func viewDidLoad() {
@@ -50,6 +55,8 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
     }
 
     private func buildLayout() {
+        let (_, documentView) = installVerticalScrollContainer(in: view)
+
         summaryLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
         summaryLabel.textColor = BuoyChrome.secondaryTextColor
         timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
@@ -60,36 +67,76 @@ public final class NetworkViewController: NSViewController, DashboardConsumer, N
         interfacesTable.tableView.delegate = self
         interfacesTable.tableView.dataSource = self
 
-        let topBar = NSStackView(views: [summaryLabel, NSView(), timestampLabel])
-        topBar.orientation = .horizontal
-        topBar.alignment = .centerY
+        summaryGrid.setItems([listenerCard, interfaceCard, addressCard, protoCard])
 
-        let listenersSection = DashboardSectionView(title: "Listening Services")
+        let accessory = NSStackView(views: [summaryLabel, timestampLabel])
+        accessory.orientation = .horizontal
+        accessory.alignment = .centerY
+        accessory.spacing = 12
+
+        let summarySection = DashboardSectionView(
+            title: "Network Summary",
+            subtitle: "Listening services, live interfaces, and the current addressing footprint.",
+            accessory: accessory
+        )
+        summarySection.pinContent(summaryGrid)
+
+        let listenersSection = DashboardSectionView(
+            title: "Listening Services",
+            subtitle: "Ports currently bound by local processes."
+        )
         listenersSection.pinContent(portsTable)
 
-        let interfacesSection = DashboardSectionView(title: "Network Interfaces")
+        let interfacesSection = DashboardSectionView(
+            title: "Interface Table",
+            subtitle: "IPv4, IPv6, MAC address, and link state."
+        )
         interfacesSection.pinContent(interfacesTable)
 
-        let stack = NSStackView(views: [topBar, listenersSection, interfacesSection])
+        let stack = NSStackView(views: [summarySection, listenersSection, interfacesSection])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20),
-            listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 170),
-            interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 160)
-        ])
+        listenersSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
+        interfacesSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 220).isActive = true
     }
 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {
         self.snapshot = snapshot
-        summaryLabel.stringValue = "\(snapshot.network.listeningPorts.count) LISTENERS • \(snapshot.network.interfaces.count) INTERFACES"
-        timestampLabel.stringValue = "LAST UPDATED \(DashboardFormatters.timestamp(snapshot.capturedAt))"
+
+        let activeInterfaces = snapshot.network.interfaces.filter(\.isUp)
+        let primaryIPv4 = activeInterfaces.flatMap(\.ipv4).first
+            ?? snapshot.network.interfaces.flatMap(\.ipv4).first
+        let protocols = Set(snapshot.network.listeningPorts.map(\.proto))
+
+        listenerCard.set(
+            value: "\(snapshot.network.listeningPorts.count)",
+            detail: "Processes with local listeners",
+            tone: snapshot.network.listeningPorts.isEmpty ? .neutral : .accent
+        )
+        interfaceCard.set(
+            value: "\(activeInterfaces.count)",
+            detail: "\(snapshot.network.interfaces.count) interfaces total",
+            tone: .accent
+        )
+        addressCard.set(
+            value: primaryIPv4 ?? "—",
+            detail: activeInterfaces.first?.name ?? "No active IPv4 address",
+            tone: primaryIPv4 == nil ? .neutral : .accent
+        )
+        protoCard.set(
+            value: "\(protocols.count)",
+            detail: protocols.sorted().joined(separator: ", ").uppercased(),
+            tone: protocols.isEmpty ? .neutral : .accent
+        )
+
+        summaryLabel.stringValue = "\(snapshot.network.listeningPorts.count) listeners | \(snapshot.network.interfaces.count) interfaces"
+        timestampLabel.stringValue = "Updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
         portsTable.tableView.reloadData()
         interfacesTable.tableView.reloadData()
     }

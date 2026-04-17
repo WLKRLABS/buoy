@@ -128,8 +128,8 @@ final class BuoyAppDelegate: NSObject, NSApplicationDelegate {
         viewMenuItem.submenu = viewMenu
         mainMenu.addItem(viewMenuItem)
 
-        for section in BuoyDashboardSection.allCases {
-            let item = NSMenuItem(title: section.title, action: #selector(selectSectionFromMenu(_:)), keyEquivalent: "\(section.rawValue + 1)")
+        for (index, section) in BuoyDashboardSection.navigationOrder.enumerated() {
+            let item = NSMenuItem(title: section.title, action: #selector(selectSectionFromMenu(_:)), keyEquivalent: "\(index + 1)")
             item.keyEquivalentModifierMask = [.command]
             item.tag = section.rawValue
             item.target = self
@@ -206,8 +206,15 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.isRestorable = false
         window.disableSnapshotRestoration()
-        window.minSize = NSSize(width: 720, height: 520)
+        window.minSize = NSSize(width: 920, height: 620)
         window.backgroundColor = BuoyChrome.windowBackgroundColor
+        window.tabbingMode = .disallowed
+        let toolbar = NSToolbar(identifier: NSToolbar.Identifier("BuoyToolbar"))
+        toolbar.displayMode = .iconOnly
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         super.init(window: window)
         contentController.bridge = bridge
         window.delegate = self
@@ -318,14 +325,15 @@ final class BuoyWindowController: NSWindowController, NSWindowDelegate {
 final class BuoyViewController: NSViewController {
     var bridge: ShellBridge?
 
-    private let titleLabel = NSTextField(labelWithString: buoyProductName)
-    private let subtitleLabel = NSTextField(labelWithString: "Keep this Mac server-ready while plugged in.")
-    private let controlsPanel = NSBox()
-    private let statusPanel = NSBox()
-    private let behaviorPanel = NSBox()
+    private let modeCard = DashboardMetricCardView(title: "Mode")
+    private let sourceCard = DashboardMetricCardView(title: "Power Source")
+    private let batteryCard = DashboardMetricCardView(title: "Battery")
+    private let lidCard = DashboardMetricCardView(title: "Closed Lid")
+    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
+    private let detailGrid = AdaptiveGridView(minColumnWidth: 360, maxColumns: 2, rowSpacing: 12, columnSpacing: 12)
 
-    private lazy var enabledSwitch = makeSwitch(title: "Server mode")
-    private lazy var clamSwitch = makeSwitch(title: "Closed-lid awake")
+    private lazy var enabledSwitch = makeSwitch(title: "Enable Buoy mode")
+    private lazy var clamSwitch = makeSwitch(title: "Allow closed-lid awake mode")
     private let displaySleepSlider = NSSlider(value: 10, minValue: 1, maxValue: 60, target: nil, action: nil)
     private let displaySleepValue = NSTextField(labelWithString: "10 min")
     private let batterySlider = NSSlider(value: 25, minValue: 0, maxValue: 100, target: nil, action: nil)
@@ -334,20 +342,20 @@ final class BuoyViewController: NSViewController {
     private let pollValue = NSTextField(labelWithString: "20 sec")
     private let appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
-    private lazy var applyButton = makeButton(title: "Apply", action: #selector(applyPressed))
-    private lazy var turnOffButton = makeButton(title: "Turn Off", action: #selector(turnOffPressed))
-    private lazy var screenOffButton = makeButton(title: "Sleep Display", action: #selector(screenOffPressed))
-    private lazy var refreshButton = makeButton(title: "Refresh", action: #selector(refreshPressed))
+    private lazy var applyButton = makeButton(title: "Apply", action: #selector(applyPressed), tone: .accent)
+    private lazy var turnOffButton = makeButton(title: "Turn Off", action: #selector(turnOffPressed), tone: .critical)
+    private lazy var screenOffButton = makeButton(title: "Sleep Display", action: #selector(screenOffPressed), tone: .neutral)
+    private lazy var refreshButton = makeButton(title: "Refresh", action: #selector(refreshPressed), tone: .neutral)
 
     private let behaviorSymbolView = NSImageView()
-    private let behaviorTitleLabel = NSTextField(labelWithString: "Checking sleep behavior")
+    private let behaviorTitleLabel = NSTextField(labelWithString: "Checking policy")
     private let behaviorDetailLabel = NSTextField(wrappingLabelWithString: "Buoy is reading the current power state.")
     private let currentBehaviorValueLabel = NSTextField(labelWithString: "Checking...")
     private let computerBehaviorValueLabel = NSTextField(labelWithString: "Restore normal sleep")
     private let displayBehaviorValueLabel = NSTextField(labelWithString: "System default")
     private let lidBehaviorValueLabel = NSTextField(labelWithString: "Normal sleep")
     private let statusLabel = NSTextField(wrappingLabelWithString: "Loading status...")
-    private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy stays scriptable through the CLI. Use ⌘1–7 to move between sections without leaving the keyboard.")
+    private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy remains fully scriptable through the CLI. The readout below matches the installed `buoy` binary.")
 
     private var currentStatus: BuoyStatus?
     private var isBusy = false {
@@ -356,7 +364,7 @@ final class BuoyViewController: NSViewController {
 
     override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     override func viewDidLoad() {
@@ -364,7 +372,6 @@ final class BuoyViewController: NSViewController {
         configureAppearance()
         buildLayout()
         wireActions()
-        refreshColorPalette()
         refreshStatus()
     }
 
@@ -374,29 +381,30 @@ final class BuoyViewController: NSViewController {
     }
 
     private func configureAppearance() {
-        titleLabel.font = NSFont.systemFont(ofSize: 30, weight: .bold)
-        titleLabel.textColor = BuoyChrome.primaryTextColor
-        subtitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .regular)
-        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
-
-        footerLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
-        footerLabel.maximumNumberOfLines = 0
+        footerLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
+        footerLabel.maximumNumberOfLines = 2
         footerLabel.textColor = BuoyChrome.secondaryTextColor
 
-        behaviorTitleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-        behaviorDetailLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
+        behaviorTitleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        behaviorTitleLabel.textColor = BuoyChrome.primaryTextColor
+
+        behaviorDetailLabel.font = .systemFont(ofSize: 12)
         behaviorDetailLabel.maximumNumberOfLines = 0
+        behaviorDetailLabel.textColor = BuoyChrome.secondaryTextColor
+
         [currentBehaviorValueLabel, computerBehaviorValueLabel, displayBehaviorValueLabel, lidBehaviorValueLabel].forEach {
-            $0.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
+            $0.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
             $0.alignment = .right
-            $0.lineBreakMode = .byWordWrapping
-            $0.maximumNumberOfLines = 2
+            $0.lineBreakMode = .byTruncatingMiddle
+            $0.textColor = BuoyChrome.primaryTextColor
         }
+
         behaviorSymbolView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
         behaviorSymbolView.imageScaling = .scaleProportionallyDown
 
-        statusLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        statusLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         statusLabel.maximumNumberOfLines = 0
+        statusLabel.textColor = BuoyChrome.primaryTextColor
 
         appearancePopup.addItems(withTitles: AppearanceMode.allCases.map(\.rawValue))
         appearancePopup.selectItem(withTitle: UserDefaults.standard.string(forKey: "appearance_mode") ?? AppearanceMode.system.rawValue)
@@ -406,64 +414,50 @@ final class BuoyViewController: NSViewController {
     private func buildLayout() {
         let (_, documentView) = installVerticalScrollContainer(in: view)
 
-        let stack = NSStackView()
+        summaryGrid.setItems([modeCard, sourceCard, batteryCard, lidCard])
+
+        let summarySection = DashboardSectionView(
+            title: "Current Policy",
+            subtitle: "Live state, power source, battery floor, and closed-lid behavior."
+        )
+        summarySection.pinContent(summaryGrid)
+
+        let configurationSection = DashboardSectionView(
+            title: "Configuration",
+            subtitle: "Apply changes explicitly to avoid repeated privilege prompts."
+        )
+        configurationSection.pinContent(makeConfigurationView())
+
+        let behaviorSection = DashboardSectionView(
+            title: "Effective Behavior",
+            subtitle: "How the current configuration maps onto sleep and lid policy."
+        )
+        behaviorSection.pinContent(makeBehaviorSummary())
+
+        detailGrid.setItems([configurationSection, behaviorSection])
+
+        let actionsSection = DashboardSectionView(
+            title: "Actions",
+            subtitle: "Routine controls stay grouped. The destructive action stays isolated."
+        )
+        actionsSection.pinContent(makeActionLayout())
+
+        let statusSection = DashboardSectionView(
+            title: "CLI Readout",
+            subtitle: "Plain-text status from the installed command line tool."
+        )
+        statusSection.pinContent(statusLabel)
+
+        let stack = NSStackView(views: [summarySection, detailGrid, actionsSection, statusSection, footerLabel])
         stack.orientation = .vertical
-        stack.spacing = 16
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.spacing = 12
         documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: documentView.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: documentView.trailingAnchor, constant: -24),
-            stack.topAnchor.constraint(equalTo: documentView.topAnchor, constant: 24),
-            stack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor, constant: -24),
-            stack.centerXAnchor.constraint(equalTo: documentView.centerXAnchor),
-            stack.widthAnchor.constraint(lessThanOrEqualToConstant: 920),
-            stack.widthAnchor.constraint(lessThanOrEqualTo: documentView.widthAnchor, constant: -48)
-        ])
-
-        let headerStack = NSStackView(views: [titleLabel, subtitleLabel])
-        headerStack.orientation = .vertical
-        headerStack.spacing = 6
-
-        let panel = makePanel(controlsPanel)
-        let panelStack = NSStackView()
-        panelStack.orientation = .vertical
-        panelStack.spacing = 14
-        panelStack.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView?.addSubview(panelStack)
-        NSLayoutConstraint.activate([
-            panelStack.leadingAnchor.constraint(equalTo: panel.contentView!.leadingAnchor, constant: 18),
-            panelStack.trailingAnchor.constraint(equalTo: panel.contentView!.trailingAnchor, constant: -18),
-            panelStack.topAnchor.constraint(equalTo: panel.contentView!.topAnchor, constant: 18),
-            panelStack.bottomAnchor.constraint(equalTo: panel.contentView!.bottomAnchor, constant: -18)
-        ])
-
-        panelStack.addArrangedSubview(makeBehaviorSummary())
-        panelStack.addArrangedSubview(enabledSwitch)
-        panelStack.addArrangedSubview(clamSwitch)
-        panelStack.addArrangedSubview(makeSliderRow(title: "Display sleep", slider: displaySleepSlider, valueLabel: displaySleepValue))
-        panelStack.addArrangedSubview(makeSliderRow(title: "Battery floor", slider: batterySlider, valueLabel: batteryValue))
-        panelStack.addArrangedSubview(makeSliderRow(title: "Poll interval", slider: pollSlider, valueLabel: pollValue))
-        panelStack.addArrangedSubview(makeAppearanceRow())
-        panelStack.addArrangedSubview(makeButtonRow())
-
-        let statusPanel = makePanel(self.statusPanel)
-        let statusStack = NSStackView(views: [statusLabel])
-        statusStack.orientation = .vertical
-        statusStack.translatesAutoresizingMaskIntoConstraints = false
-        statusPanel.contentView?.addSubview(statusStack)
-        NSLayoutConstraint.activate([
-            statusStack.leadingAnchor.constraint(equalTo: statusPanel.contentView!.leadingAnchor, constant: 18),
-            statusStack.trailingAnchor.constraint(equalTo: statusPanel.contentView!.trailingAnchor, constant: -18),
-            statusStack.topAnchor.constraint(equalTo: statusPanel.contentView!.topAnchor, constant: 18),
-            statusStack.bottomAnchor.constraint(equalTo: statusPanel.contentView!.bottomAnchor, constant: -18)
-        ])
-
-        stack.addArrangedSubview(headerStack)
-        stack.addArrangedSubview(panel)
-        stack.addArrangedSubview(statusPanel)
-        stack.addArrangedSubview(footerLabel)
+        statusSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 180).isActive = true
     }
 
     private func wireActions() {
@@ -485,32 +479,34 @@ final class BuoyViewController: NSViewController {
         updateBehaviorSummary()
     }
 
-    private func makePanel(_ box: NSBox) -> NSBox {
-        box.boxType = .custom
-        box.cornerRadius = 16
-        box.borderWidth = 1
-        box.contentViewMargins = NSSize(width: 0, height: 0)
-        return box
-    }
-
     private func makeSwitch(title: String) -> NSButton {
         let button = NSButton(checkboxWithTitle: title, target: nil, action: nil)
         button.setButtonType(.switch)
-        button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        button.font = .systemFont(ofSize: 13, weight: .medium)
         return button
     }
 
-    private func makeButton(title: String, action: Selector) -> NSButton {
+    private func makeButton(title: String, action: Selector, tone: DashboardMetricTone) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .recessed
-        button.contentTintColor = title == "Apply" ? BuoyChrome.accentColor : BuoyChrome.primaryTextColor
+        button.bezelStyle = .rounded
+        button.contentTintColor = tone.color
         return button
+    }
+
+    private func makeConfigurationView() -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 14
+        stack.addArrangedSubview(enabledSwitch)
+        stack.addArrangedSubview(clamSwitch)
+        stack.addArrangedSubview(makeSliderRow(title: "Display sleep", slider: displaySleepSlider, valueLabel: displaySleepValue))
+        stack.addArrangedSubview(makeSliderRow(title: "Battery floor", slider: batterySlider, valueLabel: batteryValue))
+        stack.addArrangedSubview(makeSliderRow(title: "Poll interval", slider: pollSlider, valueLabel: pollValue))
+        stack.addArrangedSubview(makeAppearanceRow())
+        return stack
     }
 
     private func makeBehaviorSummary() -> NSView {
-        let panel = makePanel(behaviorPanel)
-        panel.borderWidth = 0
-
         let titleStack = NSStackView(views: [behaviorTitleLabel, behaviorDetailLabel])
         titleStack.orientation = .vertical
         titleStack.spacing = 4
@@ -527,43 +523,46 @@ final class BuoyViewController: NSViewController {
             makeBehaviorRow(title: "Closed lid", valueLabel: lidBehaviorValueLabel)
         ])
         facts.orientation = .vertical
-        facts.spacing = 8
+        facts.spacing = 10
+
+        let container = NSView()
+        container.applyBuoySurface(cornerRadius: 8, fillColor: BuoyChrome.elevatedBackgroundColor)
 
         let stack = NSStackView(views: [header, facts])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        panel.contentView?.addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: panel.contentView!.leadingAnchor, constant: 14),
-            stack.trailingAnchor.constraint(equalTo: panel.contentView!.trailingAnchor, constant: -14),
-            stack.topAnchor.constraint(equalTo: panel.contentView!.topAnchor, constant: 14),
-            stack.bottomAnchor.constraint(equalTo: panel.contentView!.bottomAnchor, constant: -14)
-        ])
-
-        return panel
+        container.addSubview(stack)
+        stack.pinEdges(
+            to: container,
+            insets: NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        )
+        return container
     }
 
     private func makeBehaviorRow(title: String, valueLabel: NSTextField) -> NSView {
         let label = NSTextField(labelWithString: title)
-        label.font = NSFont.systemFont(ofSize: 11, weight: .medium)
-        label.textColor = .secondaryLabelColor
+        label.font = .systemFont(ofSize: 12)
+        label.textColor = BuoyChrome.secondaryTextColor
+
         let row = NSStackView(views: [label, NSView(), valueLabel])
         row.orientation = .horizontal
-        row.alignment = .firstBaseline
+        row.alignment = .centerY
+        row.spacing = 12
         return row
     }
 
     private func makeSliderRow(title: String, slider: NSSlider, valueLabel: NSTextField) -> NSView {
         let titleLabel = NSTextField(labelWithString: title)
-        titleLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        valueLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: 12)
+        titleLabel.textColor = BuoyChrome.primaryTextColor
+
+        valueLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .medium)
         valueLabel.alignment = .right
+        valueLabel.textColor = BuoyChrome.secondaryTextColor
 
         let header = NSStackView(views: [titleLabel, NSView(), valueLabel])
         header.orientation = .horizontal
-        header.distribution = .fill
+        header.alignment = .centerY
 
         let stack = NSStackView(views: [header, slider])
         stack.orientation = .vertical
@@ -573,17 +572,30 @@ final class BuoyViewController: NSViewController {
 
     private func makeAppearanceRow() -> NSView {
         let title = NSTextField(labelWithString: "Appearance")
-        title.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        title.font = .systemFont(ofSize: 12)
+        title.textColor = BuoyChrome.primaryTextColor
+
         let stack = NSStackView(views: [title, NSView(), appearancePopup])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         return stack
     }
 
-    private func makeButtonRow() -> NSView {
-        let grid = AdaptiveGridView(minColumnWidth: 150, maxColumns: 4, rowSpacing: 10, columnSpacing: 10)
-        grid.setItems([applyButton, turnOffButton, screenOffButton, refreshButton])
-        return grid
+    private func makeActionLayout() -> NSView {
+        let primaryRow = NSStackView(views: [applyButton, refreshButton, screenOffButton, NSView()])
+        primaryRow.orientation = .horizontal
+        primaryRow.alignment = .centerY
+        primaryRow.spacing = 10
+
+        let destructiveRow = NSStackView(views: [NSView(), turnOffButton])
+        destructiveRow.orientation = .horizontal
+        destructiveRow.alignment = .centerY
+        destructiveRow.spacing = 10
+
+        let stack = NSStackView(views: [primaryRow, destructiveRow])
+        stack.orientation = .vertical
+        stack.spacing = 10
+        return stack
     }
 
     private func updateSliderLabels() {
@@ -633,31 +645,7 @@ final class BuoyViewController: NSViewController {
             view.window?.appearance = appearance
             NSApp.appearance = appearance
         }
-        refreshColorPalette()
-    }
-
-    private func refreshColorPalette() {
-        view.layer?.backgroundColor = .clear
-        controlsPanel.fillColor = BuoyChrome.panelBackgroundColor
-        controlsPanel.borderColor = BuoyChrome.borderColor
-        behaviorPanel.fillColor = BuoyChrome.elevatedBackgroundColor
-        behaviorPanel.borderColor = BuoyChrome.borderColor
-        statusPanel.fillColor = BuoyChrome.panelBackgroundColor
-        statusPanel.borderColor = BuoyChrome.borderColor
-
-        titleLabel.textColor = BuoyChrome.primaryTextColor
-        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
-        footerLabel.textColor = BuoyChrome.secondaryTextColor
-        behaviorTitleLabel.textColor = BuoyChrome.primaryTextColor
-        behaviorDetailLabel.textColor = BuoyChrome.secondaryTextColor
-        [currentBehaviorValueLabel, computerBehaviorValueLabel, displayBehaviorValueLabel, lidBehaviorValueLabel].forEach {
-            $0.textColor = BuoyChrome.primaryTextColor
-        }
-        behaviorSymbolView.contentTintColor = enabledSwitch.state == .on ? BuoyChrome.accentColor : BuoyChrome.secondaryTextColor
-        statusLabel.textColor = BuoyChrome.primaryTextColor
-        displaySleepValue.textColor = BuoyChrome.secondaryTextColor
-        batteryValue.textColor = BuoyChrome.secondaryTextColor
-        pollValue.textColor = BuoyChrome.secondaryTextColor
+        updateBehaviorSummary()
     }
 
     private func updateBehaviorSummary() {
@@ -675,6 +663,7 @@ final class BuoyViewController: NSViewController {
         default:
             currentPowerSource = ""
         }
+
         if let sleepDisabled = currentStatus?.system.sleepDisabled {
             currentBehaviorValueLabel.stringValue = sleepDisabled == 1
                 ? currentPowerSource.isEmpty ? "Awake now" : "Awake now \(currentPowerSource)"
@@ -692,16 +681,46 @@ final class BuoyViewController: NSViewController {
             displayBehaviorValueLabel.stringValue = "After \(displaySleepMinutes) min"
             lidBehaviorValueLabel.stringValue = closedLidEnabled ? "Awake above \(batteryFloor)%" : "Normal sleep"
             behaviorSymbolView.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Awake on AC")
+            behaviorSymbolView.contentTintColor = BuoyChrome.accentColor
         } else {
             behaviorTitleLabel.stringValue = "Normal sleep restored"
-            behaviorDetailLabel.stringValue = "When Server mode is off, Buoy stops holding the Mac awake and restores the saved AC power settings."
+            behaviorDetailLabel.stringValue = "When Buoy mode is off, Buoy stops holding the Mac awake and restores the saved AC power settings."
             computerBehaviorValueLabel.stringValue = "Restore normal sleep"
             displayBehaviorValueLabel.stringValue = "System default"
             lidBehaviorValueLabel.stringValue = "System default"
             behaviorSymbolView.image = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: "Normal sleep restored")
+            behaviorSymbolView.contentTintColor = BuoyChrome.secondaryTextColor
         }
 
-        refreshColorPalette()
+        updateSummaryCards()
+    }
+
+    private func updateSummaryCards() {
+        let enabled = enabledSwitch.state == .on
+        let sleepValue = currentStatus?.mode.displaySleepMinutes ?? Int(displaySleepSlider.doubleValue)
+        let batteryPercent = currentStatus?.system.batteryPercent
+        let powerSource = currentStatus?.system.powerSource ?? "Unknown"
+
+        modeCard.set(
+            value: enabled ? "Enabled" : "Off",
+            detail: enabled ? "Display sleeps after \(sleepValue) min" : "Restores normal AC sleep behavior",
+            tone: enabled ? .accent : .neutral
+        )
+        sourceCard.set(
+            value: powerSource,
+            detail: currentStatus?.system.sleepDisabled == 1 ? "Sleep currently prevented" : "Sleep currently allowed",
+            tone: powerSource == "AC Power" ? .accent : .neutral
+        )
+        batteryCard.set(
+            value: batteryPercent.map { "\($0)%" } ?? "No battery",
+            detail: "Closed-lid floor \(Int(batterySlider.doubleValue))%",
+            tone: (batteryPercent ?? 100) < 20 ? .warning : .accent
+        )
+        lidCard.set(
+            value: clamSwitch.state == .on && enabled ? "Awake" : "Normal",
+            detail: clamSwitch.state == .on && enabled ? "Poll every \(Int(pollSlider.doubleValue)) sec" : "Closed lid follows system default",
+            tone: clamSwitch.state == .on && enabled ? .accent : .neutral
+        )
     }
 
     @objc
@@ -812,6 +831,7 @@ final class BuoyViewController: NSViewController {
             lines.append("closed lid  off")
         }
         statusLabel.stringValue = lines.joined(separator: "\n")
+        updateSummaryCards()
     }
 
     private func handleCommandResult(_ result: Result<String, Error>) {

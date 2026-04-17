@@ -5,11 +5,16 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     private let textView = NSTextView()
     private let timestampLabel = NSTextField(labelWithString: "—")
     private let intervalPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let cpuCard = DashboardMetricCardView(title: "CPU")
+    private let memoryCard = DashboardMetricCardView(title: "Memory")
+    private let diskCard = DashboardMetricCardView(title: "Disk")
+    private let thermalCard = DashboardMetricCardView(title: "Thermal")
+    private let summaryGrid = AdaptiveGridView(minColumnWidth: 210, maxColumns: 4, rowSpacing: 12, columnSpacing: 12)
     weak var coordinator: RefreshCoordinator?
 
     public override func loadView() {
         view = NSView()
-        view.wantsLayer = true
+        BuoyChrome.applyWindowBackground(to: view)
     }
 
     public override func viewDidLoad() {
@@ -21,8 +26,8 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         super.viewDidAppear()
         if coordinator == nil, let main = parent as? BuoyMainViewController {
             coordinator = main.coordinator
-            syncPopup()
         }
+        syncPopup()
     }
 
     private func syncPopup() {
@@ -33,14 +38,16 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     }
 
     private func buildLayout() {
+        let (_, documentView) = installVerticalScrollContainer(in: view)
+
         textView.isEditable = false
         textView.isSelectable = true
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
-        textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         textView.drawsBackground = false
         textView.textColor = BuoyChrome.primaryTextColor
-        textView.textContainerInset = NSSize(width: 10, height: 12)
+        textView.textContainerInset = NSSize(width: 4, height: 10)
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         textView.minSize = .zero
         textView.autoresizingMask = [.width]
@@ -54,52 +61,48 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
         scroll.borderType = .noBorder
         scroll.drawsBackground = false
         scroll.documentView = textView
-        scroll.translatesAutoresizingMaskIntoConstraints = false
 
-        let refreshLabel = NSTextField(labelWithString: "REFRESH RATE")
-        refreshLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        let refreshLabel = NSTextField(labelWithString: "Refresh")
+        refreshLabel.font = .systemFont(ofSize: 12)
         refreshLabel.textColor = BuoyChrome.secondaryTextColor
-        intervalPopup.addItems(withTitles: RefreshInterval.allCases.map { $0.label })
+
+        intervalPopup.addItems(withTitles: RefreshInterval.allCases.map(\.label))
         intervalPopup.target = self
         intervalPopup.action = #selector(intervalChanged)
 
         timestampLabel.font = .monospacedSystemFont(ofSize: 11, weight: .medium)
         timestampLabel.textColor = BuoyChrome.secondaryTextColor
 
-        let controls = NSStackView(views: [refreshLabel, intervalPopup, NSView(), timestampLabel])
-        controls.orientation = .horizontal
-        controls.alignment = .centerY
-        controls.spacing = 8
-        controls.translatesAutoresizingMaskIntoConstraints = false
+        let accessory = NSStackView(views: [refreshLabel, intervalPopup, timestampLabel])
+        accessory.orientation = .horizontal
+        accessory.alignment = .centerY
+        accessory.spacing = 8
 
-        let controlsSurface = NSView()
-        controlsSurface.applyBuoySurface(cornerRadius: 14, fillColor: BuoyChrome.elevatedBackgroundColor)
-        controlsSurface.translatesAutoresizingMaskIntoConstraints = false
-        controlsSurface.addSubview(controls)
+        summaryGrid.setItems([cpuCard, memoryCard, diskCard, thermalCard])
 
-        NSLayoutConstraint.activate([
-            controls.leadingAnchor.constraint(equalTo: controlsSurface.leadingAnchor, constant: 14),
-            controls.trailingAnchor.constraint(equalTo: controlsSurface.trailingAnchor, constant: -14),
-            controls.topAnchor.constraint(equalTo: controlsSurface.topAnchor, constant: 14),
-            controls.bottomAnchor.constraint(equalTo: controlsSurface.bottomAnchor, constant: -14)
-        ])
+        let summarySection = DashboardSectionView(
+            title: "Live System Snapshot",
+            subtitle: "Core machine state with the active refresh cadence.",
+            accessory: accessory
+        )
+        summarySection.pinContent(summaryGrid)
 
-        let textSection = DashboardSectionView(title: "Raw System Readout")
-        textSection.pinContent(scroll)
+        let readoutSection = DashboardSectionView(
+            title: "Raw Readout",
+            subtitle: "Dense operator view for exact CPU, memory, disk, power, and thermal values."
+        )
+        readoutSection.pinContent(scroll)
 
-        let stack = NSStackView(views: [controlsSurface, textSection])
+        let stack = NSStackView(views: [summarySection, readoutSection])
         stack.orientation = .vertical
         stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
+        documentView.addSubview(stack)
+        stack.pinEdges(
+            to: documentView,
+            insets: NSEdgeInsets(top: 20, left: 24, bottom: 24, right: 24)
+        )
 
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -20),
-            textSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 320)
-        ])
+        readoutSection.heightAnchor.constraint(greaterThanOrEqualToConstant: 360).isActive = true
     }
 
     @objc private func intervalChanged() {
@@ -109,70 +112,78 @@ public final class SystemMetricsViewController: NSViewController, DashboardConsu
     }
 
     public func dashboardDidUpdate(_ snapshot: DashboardSnapshot) {
+        cpuCard.set(
+            value: String(format: "%.1f%%", snapshot.cpu.overallPercent),
+            detail: snapshot.cpu.frequencyGHz.map { String(format: "%.2f GHz | %d cores", $0, snapshot.cpu.perCorePercent.count) } ?? "\(snapshot.cpu.perCorePercent.count) cores",
+            tone: snapshot.cpu.overallPercent > 80 ? .warning : .accent
+        )
+        memoryCard.set(
+            value: String(format: "%.1f%%", snapshot.memory.usagePercent),
+            detail: String(format: "%.2f GB used of %.2f GB", snapshot.memory.usedGB, snapshot.memory.totalGB),
+            tone: snapshot.memory.usagePercent > 85 ? .warning : .accent
+        )
+        diskCard.set(
+            value: String(format: "%.1f%%", snapshot.disk.usagePercent),
+            detail: String(format: "%.2f GB free on %@", snapshot.disk.availableGB, DashboardFormatters.abbreviatedPath(snapshot.disk.mountPoint)),
+            tone: snapshot.disk.usagePercent > 90 ? .warning : .accent
+        )
+
+        let thermalText: String
+        if let temperature = snapshot.thermal.cpuTempCelsius {
+            thermalText = String(format: "%.1f °C CPU", temperature)
+        } else {
+            thermalText = "Unavailable"
+        }
+        thermalCard.set(
+            value: snapshot.thermal.thermalLevel ?? "Nominal",
+            detail: thermalText,
+            tone: snapshot.thermal.thermalLevel == nil || snapshot.thermal.thermalLevel == "Nominal" ? .accent : .warning
+        )
+
         var lines: [String] = []
-        lines.append("═══ CPU ═══")
-        lines.append(String(format: "  Overall:   %6.1f %%", snapshot.cpu.overallPercent))
-        if let f = snapshot.cpu.frequencyGHz {
-            lines.append(String(format: "  Frequency: %6.2f GHz", f))
+        lines.append("══ CPU ═════════════════════════════════")
+        lines.append(String(format: "overall      %6.1f %%", snapshot.cpu.overallPercent))
+        if let frequency = snapshot.cpu.frequencyGHz {
+            lines.append(String(format: "frequency    %6.2f GHz", frequency))
         } else {
-            lines.append("  Frequency: n/a")
+            lines.append("frequency    unavailable")
         }
-        for (i, c) in snapshot.cpu.perCorePercent.enumerated() {
-            lines.append(String(format: "  Core %2d:   %6.1f %%", i, c))
-        }
-
-        lines.append("")
-        lines.append("═══ Memory ═══")
-        lines.append(String(format: "  Total:     %7.2f GB", snapshot.memory.totalGB))
-        lines.append(String(format: "  Used:      %7.2f GB", snapshot.memory.usedGB))
-        lines.append(String(format: "  Available: %7.2f GB", snapshot.memory.availableGB))
-        lines.append(String(format: "  Usage:     %6.1f %%", snapshot.memory.usagePercent))
-
-        lines.append("")
-        lines.append("═══ Disk (\(snapshot.disk.mountPoint)) ═══")
-        lines.append(String(format: "  Total:     %7.2f GB", snapshot.disk.totalGB))
-        lines.append(String(format: "  Used:      %7.2f GB", snapshot.disk.usedGB))
-        lines.append(String(format: "  Available: %7.2f GB", snapshot.disk.availableGB))
-        lines.append(String(format: "  Usage:     %6.1f %%", snapshot.disk.usagePercent))
-
-        lines.append("")
-        lines.append("═══ Power / Battery ═══")
-        lines.append("  Source:    \(snapshot.power.powerSource)")
-        if let p = snapshot.power.batteryPercent {
-            lines.append(String(format: "  Charge:    %d %%", p))
-        }
-        lines.append("  Status:    \(chargingStatus(for: snapshot.power))")
-        if let t = snapshot.power.timeRemainingMinutes {
-            lines.append("  Time left: \(DashboardFormatters.duration(minutes: t))")
-        }
-        if let c = snapshot.power.condition {
-            lines.append("  Condition: \(c)")
-        }
-        if let w = snapshot.power.wattageDraw {
-            lines.append(String(format: "  Wattage:   %.2f W", w))
+        for (index, value) in snapshot.cpu.perCorePercent.enumerated() {
+            lines.append(String(format: "core %02d      %6.1f %%", index, value))
         }
 
         lines.append("")
-        lines.append("═══ Thermal ═══")
-        if let t = snapshot.thermal.cpuTempCelsius {
-            lines.append(String(format: "  CPU temp:     %5.1f °C", t))
-        } else {
-            lines.append("  CPU temp:     unavailable (needs entitlement)")
-        }
-        if let b = snapshot.thermal.batteryTempCelsius {
-            lines.append(String(format: "  Battery temp: %5.1f °C", b))
-        } else {
-            lines.append("  Battery temp: unavailable")
-        }
-        if let lvl = snapshot.thermal.thermalLevel {
-            lines.append("  Pressure:     \(lvl)")
-        }
+        lines.append("══ MEMORY ═════════════════════════════")
+        lines.append(String(format: "total        %7.2f GB", snapshot.memory.totalGB))
+        lines.append(String(format: "used         %7.2f GB", snapshot.memory.usedGB))
+        lines.append(String(format: "available    %7.2f GB", snapshot.memory.availableGB))
+        lines.append(String(format: "pressure     %6.1f %%", snapshot.memory.usagePercent))
+
+        lines.append("")
+        lines.append("══ DISK ═══════════════════════════════")
+        lines.append("mount        \(snapshot.disk.mountPoint)")
+        lines.append(String(format: "total        %7.2f GB", snapshot.disk.totalGB))
+        lines.append(String(format: "used         %7.2f GB", snapshot.disk.usedGB))
+        lines.append(String(format: "available    %7.2f GB", snapshot.disk.availableGB))
+        lines.append(String(format: "pressure     %6.1f %%", snapshot.disk.usagePercent))
+
+        lines.append("")
+        lines.append("══ POWER ══════════════════════════════")
+        lines.append("source       \(snapshot.power.powerSource)")
+        lines.append("charge       \(snapshot.power.batteryPercent.map { "\($0) %" } ?? "n/a")")
+        lines.append("status       \(chargingStatus(for: snapshot.power))")
+        lines.append("time left    \(DashboardFormatters.duration(minutes: snapshot.power.timeRemainingMinutes))")
+        lines.append("condition    \(snapshot.power.condition ?? "—")")
+        lines.append("wattage      \(snapshot.power.wattageDraw.map { String(format: "%.2f W", $0) } ?? "—")")
+
+        lines.append("")
+        lines.append("══ THERMAL ════════════════════════════")
+        lines.append("cpu temp     \(snapshot.thermal.cpuTempCelsius.map { String(format: "%.1f °C", $0) } ?? "unavailable")")
+        lines.append("battery temp \(snapshot.thermal.batteryTempCelsius.map { String(format: "%.1f °C", $0) } ?? "unavailable")")
+        lines.append("pressure     \(snapshot.thermal.thermalLevel ?? "Nominal")")
 
         textView.string = lines.joined(separator: "\n")
-
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm:ss"
-        timestampLabel.stringValue = "LAST UPDATED \(fmt.string(from: snapshot.capturedAt))"
+        timestampLabel.stringValue = "Updated \(DashboardFormatters.timestamp(snapshot.capturedAt))"
     }
 
     private func chargingStatus(for power: PowerSnapshot) -> String {
