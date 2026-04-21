@@ -241,6 +241,7 @@ prepare_release() {
   run_step "$ROOT_DIR/scripts/build-cli.sh"
   run_step "$ROOT_DIR/scripts/build-app.sh"
   run_step "$ROOT_DIR/scripts/package-release.sh"
+  run_step "$ROOT_DIR/scripts/verify-release.sh"
   run_step "$ROOT_DIR/scripts/render-release-notes.sh"
 
   if [[ "$should_install" == "1" ]]; then

@@ -15,7 +15,7 @@ Document every supported install path, the default install locations, and the lo
 Recommended when you want the normal end-user path.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WLKRLABS/buoy/main/install.sh | DOWNLOAD_REPO=WLKRLABS/buoy bash
+curl -fsSL https://github.com/WLKRLABS/buoy/releases/latest/download/install.sh | bash
 ```
 
 What the installer does:
@@ -23,7 +23,7 @@ What the installer does:
 - tries to download the latest release assets first
 - installs `buoy`
 - installs `Buoy.app`
-- falls back to a source build if release assets cannot be downloaded
+- falls back to the matching release source archive if release assets cannot be downloaded
 
 ### Method 2: Install From A Local Clone
 
@@ -68,10 +68,14 @@ The remote installer also accepts:
 
 - `DOWNLOAD_REPO`
   Purpose: choose the GitHub repo used for release assets or source fallback
+- `DOWNLOAD_RELEASE_TAG`
+  Purpose: pin release downloads to a specific tag instead of `latest`
 - `DOWNLOAD_REF`
   Purpose: choose the Git ref for source fallback
 - `DOWNLOAD_RELEASES`
   Purpose: set to `0` to skip release downloads and force a source build
+- `LOCAL_RELEASE_DIR`
+  Purpose: install directly from a local packaged release directory
 
 ## PATH Setup
 
@@ -105,7 +109,7 @@ Confirm:
 Update by running the same install command again:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WLKRLABS/buoy/main/install.sh | DOWNLOAD_REPO=WLKRLABS/buoy bash
+curl -fsSL https://github.com/WLKRLABS/buoy/releases/latest/download/install.sh | bash
 ```
 
 Or from a clone:
@@ -151,7 +155,7 @@ Use the repo scripts rather than calling `swiftc` directly.
 
 - `scripts/build-app.sh` signs the app bundle.
 - `scripts/setup-local-signing.sh` can create a stable self-signed identity for repeated local builds.
-- This repo does not show a notarization step in the current build or release scripts.
+- GitHub release builds are not notarized in the current repo.
 - `install.sh` clears extended attributes on the installed app bundle when `xattr` is available.
 
 If macOS still blocks the app, see [Troubleshooting](troubleshooting.md#macos-warns-when-opening-the-app).

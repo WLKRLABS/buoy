@@ -66,11 +66,11 @@ The app uses monospaced text in places where scanability matters:
 
 ## What Still Needs Explicit Testing
 
-- `[TBD — requires product/source confirmation]` VoiceOver behavior across all sections
-- `[TBD — requires product/source confirmation]` keyboard focus order audit across the whole window
-- `[TBD — requires product/source confirmation]` measured contrast audit against WCAG targets
-- `[TBD — requires product/source confirmation]` large-text and zoom behavior review
-- `[TBD — requires product/source confirmation]` reduced-transparency and increased-contrast behavior review
+- VoiceOver behavior is not covered by an automated suite and should be treated as unverified beyond standard AppKit control semantics.
+- Full keyboard focus-order validation is still a manual release check, especially in `Power` and `Storage`.
+- Color contrast is not measured in CI and this document does not claim WCAG ratio certification.
+- Large-text and zoom behavior are not formally certified across the densest tables and cards.
+- Reduced-transparency and increased-contrast behavior are not explicitly tuned beyond inherited AppKit behavior in the current repo.
 
 ## Known Accessibility Risks
 

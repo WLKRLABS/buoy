@@ -12,5 +12,7 @@ OUTPUT_DIR="$RELEASE_DIR" "$ROOT_DIR/scripts/build-app.sh"
 
 rm -f "$RELEASE_DIR/Buoy.app.zip"
 ditto -c -k --sequesterRsrc --keepParent "$RELEASE_DIR/Buoy.app" "$RELEASE_DIR/Buoy.app.zip"
+"$ROOT_DIR/scripts/render-installer.sh" "$RELEASE_DIR/install.sh"
+(cd "$RELEASE_DIR" && shasum -a 256 buoy Buoy.app.zip install.sh > SHA256SUMS.txt)
 
 echo "Release assets prepared in $RELEASE_DIR"

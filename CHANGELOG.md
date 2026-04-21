@@ -6,11 +6,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Added
 
+- Added packaged `install.sh` and `SHA256SUMS.txt` release assets plus a `./scripts/verify-release.sh` check so GitHub releases now ship a one-line installer and verifiable checksums alongside `buoy` and `Buoy.app.zip`.
+
 ### Changed
+
+- Declared Buoy `1.0.0` as the first stable Apple Silicon release line and rewrote the public docs to use explicit support boundaries instead of placeholder `TBD` release language.
+- Updated the documented release install path to download the installer from GitHub release assets instead of `main`, keeping normal installs aligned with published versions.
 
 ### Fixed
 
-- Fixed `./scripts/release.sh tag` so it no longer trips over `set -e` when the target tag does not already exist.
+- Fixed remote release installs so a missing asset download now falls back to the matching release source archive instead of silently building from the moving `main` branch.
+- Fixed release prep so `./scripts/release.sh prepare` now verifies the packaged installer and release assets before a tag is cut.
 
 ### Removed
 

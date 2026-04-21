@@ -38,6 +38,9 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: ./scripts/package-release.sh
 
+      - name: Verify packaged release
+        run: ./scripts/verify-release.sh
+
       - name: Render release notes
         run: ./scripts/render-release-notes.sh dist/release-notes.md
 
@@ -48,3 +51,5 @@ jobs:
           files: |
             dist/release/buoy
             dist/release/Buoy.app.zip
+            dist/release/install.sh
+            dist/release/SHA256SUMS.txt

@@ -28,7 +28,7 @@
 Install from the latest GitHub release:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WLKRLABS/buoy/main/install.sh | DOWNLOAD_REPO=WLKRLABS/buoy bash
+curl -fsSL https://github.com/WLKRLABS/buoy/releases/latest/download/install.sh | bash
 ```
 
 Install from a local clone:
@@ -42,7 +42,7 @@ The installer:
 - installs `buoy` to `~/.local/bin` by default
 - installs `Buoy.app` to `~/Applications` by default
 - prefers downloadable release assets when available
-- falls back to a local source build when release assets are unavailable
+- falls back to the matching release source archive when release assets are unavailable
 
 If `~/.local/bin` is not already on your shell `PATH`, run:
 
@@ -212,6 +212,7 @@ Package release assets:
 
 ```bash
 ./scripts/package-release.sh
+./scripts/verify-release.sh
 ```
 
 Prepare a release from the current `Unreleased` notes:
@@ -232,8 +233,10 @@ bash scripts/validate-versioning.sh
 ## Current Limits
 
 - macOS only
+- Apple Silicon release assets only
 - `Buoy.app` declares `LSMinimumSystemVersion` `13.0`
 - privileged power changes still depend on standard macOS administrator authentication
 - closed-lid awake mode uses a helper process
+- GitHub release downloads are not notarized in the current repo
 - source builds require a working Apple Swift toolchain
-- current build scripts emit native binaries for the build host; universal build coverage is not documented in this repo
+- current build scripts emit native binaries for the build host instead of universal binaries

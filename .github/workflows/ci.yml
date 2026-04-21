@@ -41,7 +41,10 @@ jobs:
       - name: Package release assets
         run: ./scripts/package-release.sh
 
-      - name: Check packaged assets
+      - name: Run storage tests
         run: |
-          test -f dist/release/buoy
-          test -f dist/release/Buoy.app.zip
+          ./scripts/test-storage-scanner.sh
+          ./scripts/test-storage-cache.sh
+
+      - name: Verify packaged release
+        run: ./scripts/verify-release.sh

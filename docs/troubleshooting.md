@@ -174,7 +174,7 @@ If it still stays partial:
 
 ### Likely Causes
 
-- the current repo does not show a notarization step
+- the current release flow does not notarize GitHub downloads
 - the app bundle still has quarantine or trust warnings
 
 ### Checks
@@ -185,7 +185,7 @@ If it still stays partial:
 
 - prefer `install.sh`, which clears extended attributes on the installed app when possible
 - if you built locally, use `scripts/setup-local-signing.sh` for a stable local signing identity
-- `[TBD — requires product/source confirmation]` for any formal notarized distribution path
+- use standard macOS review-and-open behavior for non-notarized downloads when Gatekeeper blocks first launch
 
 ## Battery, Wattage, Or Thermal Values Are Unavailable
 

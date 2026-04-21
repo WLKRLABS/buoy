@@ -153,8 +153,8 @@ Why this matters:
 
 ## Open Questions
 
-- `[TBD — requires product/source confirmation]` for any formal privacy policy outside the repository
-- `[TBD — requires product/source confirmation]` for any planned notarized distribution or signing policy statement
+- The repository docs are the current privacy statement for Buoy; there is no separate hosted privacy-policy surface in the current release.
+- GitHub release downloads are built and signed by the repo scripts but are not notarized in the current release flow.
 
 ## See Also
 

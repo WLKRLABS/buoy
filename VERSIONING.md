@@ -5,9 +5,8 @@ This repo uses Semantic Versioning with a lightweight public-release process.
 ## Current State
 
 - Current version source of truth: `VERSION`
-- Current release line: pre-1.0
-- First formal release: `0.1.0`
-- Stable target model: `1.0.0`
+- Public 0.x releases were used to stabilize the CLI, app, installer, and release automation
+- `1.0.0` is the first stable Apple Silicon release line
 
 ## What Counts As Public Surface
 
@@ -109,8 +108,11 @@ CI must fail when:
 
 Use `.github/release-notes.md` for manual drafting. Automated GitHub releases render notes from the current version section in `CHANGELOG.md`.
 
-## Recommendation
+## Stable Release Position
 
-Do not release `1.0.0` yet.
+`1.0.0` is appropriate when:
 
-This repo is close to a first public release, but versioning, CI, and release handling are only now being formalized. The right move is to ship `0.1.0`, prove one clean release cycle, then promote to `1.0.0` once the public surface is intentionally stable and release operations are routine.
+- the CLI, app, installer, and release assets are kept in sync through the repo scripts
+- the support boundary is explicit: macOS `13.0+` on Apple Silicon
+- GitHub release distribution is treated honestly as a non-notarized download unless release notes say otherwise
+- release verification proves the packaged installer and assets match `VERSION`

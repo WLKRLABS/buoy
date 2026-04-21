@@ -41,6 +41,7 @@ Run:
 ./scripts/build-cli.sh
 ./scripts/build-app.sh
 ./scripts/package-release.sh
+./scripts/verify-release.sh
 ```
 
 What this covers:
@@ -48,6 +49,7 @@ What this covers:
 - CLI build
 - app build
 - release packaging shape
+- packaged installer and asset verification
 
 ## Storage Tests
 
@@ -99,7 +101,8 @@ Current CI workflow:
 - runs `doctor` and `status --json`
 - builds the app
 - packages release assets
-- checks packaged release outputs
+- runs storage test scripts
+- verifies the packaged release installer and assets
 
 Source:
 
@@ -109,7 +112,7 @@ Source:
 
 - no automated UI test suite is present in the current repo
 - no formal docs lint step is present in CI
-- no automated notarization or distribution validation step is shown
+- no automated notarization step is present in the current repo
 
 ## Recommended Change-Based Testing
 

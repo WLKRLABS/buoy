@@ -8,7 +8,7 @@
       "CLI: buoy",
       "App: Buoy.app"
     ],
-    "architectures": "Current local builds in this workspace are arm64. Official universal or Intel release support is [TBD — requires product/source confirmation]."
+    "architectures": "Buoy 1.0.0 ships Apple Silicon release assets only. Universal and Intel release targets are not part of the current pipeline."
   },
   "summary": "Buoy applies a reversible AC power profile through a CLI-first engine and exposes a native macOS dashboard for power, system, process, service, network, and storage inspection.",
   "features": [
@@ -251,7 +251,7 @@
     "Closed-lid awake mode depends on a helper process that can drift if killed externally.",
     "CPU temperature is intentionally unavailable in the current Apple silicon path.",
     "Protected storage folders remain partial until explicitly granted.",
-    "The current repository does not show a notarization step for app distribution."
+    "GitHub release downloads are not notarized in the current repository."
   ],
   "troubleshooting": [
     {

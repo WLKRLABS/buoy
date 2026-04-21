@@ -16,11 +16,14 @@ Run:
 
 ```bash
 bash scripts/validate-versioning.sh
+./scripts/smoke-test.sh
 ./scripts/build-cli.sh
 ./scripts/build-app.sh
-./scripts/smoke-test.sh
 ./scripts/test-storage-scanner.sh
 ./scripts/test-storage-cache.sh
+./scripts/package-release.sh
+./scripts/verify-release.sh
+bash -n install.sh scripts/*.sh buoy
 ```
 
 ## Release Tags

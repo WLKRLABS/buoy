@@ -201,7 +201,7 @@ Definition:
 
 Current state:
 
-- `[TBD — requires product/source confirmation]` for direct support on hardware that can safely expose it without extra entitlements
+- Buoy does not currently expose CPU temperature in the released product surface.
 
 Current implementation detail:
 

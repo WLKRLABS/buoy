@@ -20,7 +20,7 @@ Help you install Buoy, verify it, apply the power profile safely, and understand
 Recommended release install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/WLKRLABS/buoy/main/install.sh | DOWNLOAD_REPO=WLKRLABS/buoy bash
+curl -fsSL https://github.com/WLKRLABS/buoy/releases/latest/download/install.sh | bash
 ```
 
 Local install from a clone:

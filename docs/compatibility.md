@@ -36,10 +36,11 @@ What the current source proves:
 - local builds in this workspace produce `arm64` binaries
 - current build scripts call `swiftc` directly and do not build universal binaries
 
-What is still unconfirmed:
+What to assume for the product:
 
-- `[TBD — requires product/source confirmation]` for official Intel release support
-- `[TBD — requires product/source confirmation]` for official universal release assets
+- Buoy `1.0.0` supports Apple Silicon Macs only
+- Intel Macs are not a supported release target in the current repo
+- official universal release assets are not part of the current release pipeline
 
 ## Hardware Expectations
 
@@ -95,19 +96,15 @@ The current repo expects these macOS tools or APIs:
 What the current repo shows:
 
 - build scripts sign the app bundle
-- release automation packages `buoy` and `Buoy.app.zip`
-- the current scripts do not show a notarization step
-
-What remains unconfirmed:
-
-- `[TBD — requires product/source confirmation]` for notarized public release behavior
+- release automation packages `buoy`, `Buoy.app.zip`, `install.sh`, and `SHA256SUMS.txt`
+- GitHub release downloads are not notarized in the current repo
 
 ## Compatibility Summary
 
 Buoy is a current macOS utility for local use. It is safest to treat the documented support envelope as:
 
 - macOS `13.0+`
-- native binaries for the build host architecture
+- Apple Silicon release assets
 - best experience on machines where macOS exposes battery and power telemetry
 
 ## See Also

@@ -40,7 +40,7 @@ This command:
 - moves the current `Unreleased` changelog body into `## [X.Y.Z] - YYYY-MM-DD`
 - resets `Unreleased` to empty release headings
 - updates `VERSION`
-- runs version validation, smoke checks, CLI build, app build, packaging, and release-notes rendering
+- runs version validation, smoke checks, CLI build, app build, packaging, packaged-release verification, and release-notes rendering
 
 4. Install the release locally if you need to update the current machine:
 
@@ -76,6 +76,8 @@ Current packaged assets:
 
 - `buoy`
 - `Buoy.app.zip`
+- `install.sh`
+- `SHA256SUMS.txt`
 
 Produced by:
 
@@ -106,6 +108,7 @@ Current steps:
 - validate version and tag match
 - validate the release commit subject
 - build release assets
+- verify packaged release assets
 - render release notes
 - publish a GitHub release with attached files
 
@@ -119,12 +122,14 @@ Source:
 - the GitHub release exists
 - `buoy` is attached
 - `Buoy.app.zip` is attached
+- `install.sh` is attached
+- `SHA256SUMS.txt` is attached
 - release notes match the changelog section you intended to ship
 
 ## Current Release Constraints
 
 - build scripts compile native binaries for the build host
-- the current repo shows signing but no notarization step
+- the current repo ships non-notarized GitHub release downloads
 - current release automation is tag-driven, not branch-driven
 
 ## Related Docs

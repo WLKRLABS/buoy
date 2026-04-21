@@ -107,6 +107,14 @@ Outputs:
 
 - `dist/release/buoy`
 - `dist/release/Buoy.app.zip`
+- `dist/release/install.sh`
+- `dist/release/SHA256SUMS.txt`
+
+Verify the packaged release:
+
+```bash
+./scripts/verify-release.sh
+```
 
 ## Common Problems
 

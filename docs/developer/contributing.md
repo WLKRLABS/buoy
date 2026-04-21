@@ -58,6 +58,8 @@ bash scripts/validate-versioning.sh
 ./scripts/build-app.sh
 ./scripts/test-storage-scanner.sh
 ./scripts/test-storage-cache.sh
+./scripts/package-release.sh
+./scripts/verify-release.sh
 ```
 
 Also run shell syntax checks when you touch scripts:

@@ -97,9 +97,10 @@ The app also stores UI and access-grant preferences in `UserDefaults`.
 ## Known Product Boundaries
 
 - `Buoy.app` declares macOS `13.0` as its minimum system version.
-- Current build scripts compile native binaries for the build host instead of producing universal binaries.
+- Buoy `1.0.0` ships Apple Silicon release assets instead of universal binaries.
 - CPU temperature is intentionally unavailable in the current source on Apple silicon without extra entitlements.
 - Protected storage folders stay off until you explicitly grant access.
+- GitHub release downloads are not notarized in the current repo.
 
 ## See Also
 
