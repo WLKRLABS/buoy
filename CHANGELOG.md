@@ -6,6 +6,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [1.0.0] - 2026-04-20
+
+### Added
+
 - Added packaged `install.sh` and `SHA256SUMS.txt` release assets plus a `./scripts/verify-release.sh` check so GitHub releases now ship a one-line installer and verifiable checksums alongside `buoy` and `Buoy.app.zip`.
 
 ### Changed
@@ -19,6 +30,7 @@ This changelog is intentionally lightweight. Each released version gets one shor
 - Fixed release prep so `./scripts/release.sh prepare` now verifies the packaged installer and release assets before a tag is cut.
 
 ### Removed
+
 
 ## [0.3.1] - 2026-04-16
 
