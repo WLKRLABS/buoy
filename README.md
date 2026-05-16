@@ -2,28 +2,12 @@
 
 > Keep a Mac awake on AC power, restore the original sleep settings cleanly, and inspect the machine from a native macOS dashboard.
 
-`Buoy` is a macOS-only utility with two surfaces:
+Buoy is a macOS-only utility with two surfaces:
 
 - `buoy`, a CLI that owns power-state changes and restore behavior
 - `Buoy.app`, a native wrapper that drives the CLI and adds live system inspection
 
-## What Buoy Does
-
-- applies a server-friendly AC power profile with `pmset`
-- keeps display sleep configurable instead of forcing the screen on
-- optionally manages closed-lid awake behavior above a battery floor
-- restores the previously saved AC settings with `buoy off`
-- shows live Overview, Power, System, Processes, Services, Network, and Storage sections in the app
-- scans storage in two passes: a fast summary refresh and an explicit deep scan for largest files
-
-## What Buoy Does Not Do
-
-- it does not manage non-macOS systems
-- it does not auto-start at login or auto-apply on boot in the current repo
-- it does not clean files automatically
-- it does not replace `pmset`; it applies a narrow set of reversible settings on top of it
-
-## Quick Start
+## Quick start
 
 Install from the latest GitHub release:
 
@@ -37,19 +21,6 @@ Install from a local clone:
 ./install.sh
 ```
 
-The installer:
-
-- installs `buoy` to `~/.local/bin` by default
-- installs `Buoy.app` to `~/Applications` by default
-- prefers downloadable release assets when available
-- falls back to the matching release source archive when release assets are unavailable
-
-If `~/.local/bin` is not already on your shell `PATH`, run:
-
-```bash
-buoy path-add
-```
-
 Then verify the install:
 
 ```bash
@@ -57,7 +28,29 @@ buoy doctor
 buoy status
 ```
 
-## Common Commands
+If `~/.local/bin` is not on your shell `PATH`, run:
+
+```bash
+buoy path-add
+```
+
+## What Buoy does
+
+- applies a server-friendly AC power profile with `pmset`
+- keeps display sleep configurable instead of forcing the screen on
+- optionally manages closed-lid awake behavior above a battery floor
+- restores the previously saved AC settings with `buoy off`
+- shows live Overview, Power, System, Processes, Services, Network, and Storage sections in the app
+- scans storage in two passes: a fast summary refresh and an explicit deep scan for largest files
+
+## What Buoy does not do
+
+- it does not manage non-macOS systems
+- it does not auto-start at login or auto-apply on boot in the current repo
+- it does not clean files automatically
+- it does not replace `pmset`; it applies a narrow set of reversible settings on top of it
+
+## Common commands
 
 ```bash
 buoy apply
@@ -70,7 +63,7 @@ buoy screen-off
 buoy doctor
 ```
 
-## What `buoy apply` Changes
+## What `buoy apply` changes
 
 `buoy apply` reads the current AC profile, saves the original values, and applies a managed AC profile.
 
@@ -86,7 +79,7 @@ Managed keys:
 
 `buoy off` restores the saved AC values from `~/.buoy/state.json` and stops the closed-lid helper if it is running.
 
-## Closed-Lid Awake Mode
+## Closed-lid awake mode
 
 When you pass `--clam`, Buoy also manages `SleepDisabled`.
 
@@ -102,7 +95,7 @@ Example:
 buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 10
 ```
 
-## App Overview
+## App overview
 
 `Buoy.app` is not a separate control path. It drives the installed CLI and adds a native dashboard.
 
@@ -138,56 +131,18 @@ Privileged writes use the standard macOS administrator prompt. Normal reads run 
 
 ## Documentation
 
-User docs:
+Start with [Documentation](docs/README.md). The main path is:
 
 - [Overview](docs/overview.md)
-- [Getting Started](docs/getting-started.md)
+- [Getting started](docs/getting-started.md)
 - [Installation](docs/installation.md)
-- [Interface Tour](docs/interface-tour.md)
-- [Features](docs/features.md)
-- [Metrics And Definitions](docs/metrics-and-definitions.md)
-- [Alerts And Thresholds](docs/alerts-and-thresholds.md)
-- [Settings Reference](docs/settings-reference.md)
+- [Interface tour](docs/interface-tour.md)
 - [Workflows](docs/workflows.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [FAQ](docs/faq.md)
-- [Privacy And Permissions](docs/privacy-and-permissions.md)
-- [Compatibility](docs/compatibility.md)
-- [Accessibility](docs/accessibility.md)
-- [Advanced Usage](docs/advanced-usage.md)
 
-Developer docs:
+Maintainers should also read [Architecture](docs/architecture.md), [Style guide](docs/style-guide.md), and [Glossary](docs/glossary.md).
 
-- [Architecture](docs/developer/architecture.md)
-- [Data Flow](docs/developer/data-flow.md)
-- [Contributing](docs/developer/contributing.md)
-- [Build And Run](docs/developer/build-and-run.md)
-- [Testing](docs/developer/testing.md)
-- [Release Process](docs/developer/release-process.md)
-
-Machine-readable product docs:
-
-- [Product Spec](docs/machine/product-spec.json)
-- [Feature Map](docs/machine/feature-map.yaml)
-- [Glossary](docs/machine/glossary.json)
-- [Troubleshooting Map](docs/machine/troubleshooting-map.json)
-
-Repo policy and history:
-
-- [Changelog](CHANGELOG.md)
-- [Versioning Policy](VERSIONING.md)
-- [Root Contributing Notes](CONTRIBUTING.md)
-
-Internal product notes that still exist in this repo:
-
-- [Technical Roadmap](docs/technical-roadmap.md)
-- [Brand System](docs/brand-system.md)
-- [UX Foundation](docs/ux-foundation.md)
-- [Writing Style](docs/writing-style.md)
-- [Launch Risks](docs/launch-risks.md)
-- [Architecture Decision Record](docs/adr/ADR-001-swift-cli-and-swift-wrapper.md)
-
-## Build From Source
+## Build from source
 
 Build the CLI:
 
@@ -230,7 +185,7 @@ bash scripts/validate-versioning.sh
 ./scripts/render-release-notes.sh
 ```
 
-## Current Limits
+## Current limits
 
 - macOS only
 - Apple Silicon release assets only

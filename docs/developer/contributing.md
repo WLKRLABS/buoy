@@ -99,15 +99,15 @@ Do not:
 
 For full release steps, see [Release Process](release-process.md).
 
-## Existing Internal Notes
+## Deprecated historical notes
 
-This repo still contains internal product notes such as:
+Historical product notes live under `docs/deprecated/`. Treat them as context, not as active guidance.
 
-- `docs/technical-roadmap.md`
-- `docs/brand-system.md`
-- `docs/ux-foundation.md`
+- `docs/deprecated/technical-roadmap.md`
+- `docs/deprecated/brand-system.md`
+- `docs/deprecated/ux-foundation.md`
 
-Treat them as supporting context, not as substitutes for the main docs suite.
+Use `docs/README.md`, `docs/architecture.md`, `docs/style-guide.md`, and `docs/glossary.md` as the current docs contract.
 
 ## Related Docs
 

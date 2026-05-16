@@ -1,5 +1,11 @@
 # Buoy Brand System
 
+> Deprecated note
+>
+> Original path: `docs/brand-system.md`
+> Reason: superseded by the active docs map, glossary, and style guide. Some positioning language in this file predates the current dashboard and should not be treated as source of truth.
+> Replacement: `docs/style-guide.md`, `docs/glossary.md`, and `docs/README.md`.
+
 ## Brand Foundation
 
 **Purpose**: Keep a Mac quietly ready for work.

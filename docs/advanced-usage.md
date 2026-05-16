@@ -115,15 +115,17 @@ Primary local paths:
 - state: `~/.buoy/state.json`
 - storage cache: `~/Library/Application Support/Buoy/storage-scan-cache.json`
 
-## Installer Environment Variables
+## Installer environment variables
 
 Useful for scripted installs:
 
 - `BIN_DIR`
 - `APP_DIR`
 - `DOWNLOAD_REPO`
+- `DOWNLOAD_RELEASE_TAG`
 - `DOWNLOAD_REF`
 - `DOWNLOAD_RELEASES`
+- `LOCAL_RELEASE_DIR`
 
 Example:
 

@@ -1,5 +1,11 @@
 # Storage Page Speed Plan
 
+> Deprecated note
+>
+> Original path: `docs/storage-speed-plan.md`
+> Reason: planning note for storage cache and deep-scan behavior that has been absorbed into current product and developer docs.
+> Replacement: `docs/features.md`, `docs/metrics-and-definitions.md`, and `docs/developer/architecture.md`.
+
 Chosen direction: `Cached + Async`.
 
 ## Goal

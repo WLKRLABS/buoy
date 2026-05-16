@@ -8,6 +8,8 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Changed
 
+- Reworked the documentation front door, added canonical docs map/glossary/style/architecture pages, and moved stale planning notes into `docs/deprecated/`.
+
 ### Fixed
 
 ### Removed

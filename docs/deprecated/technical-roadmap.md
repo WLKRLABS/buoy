@@ -1,5 +1,11 @@
 # Technical Roadmap
 
+> Deprecated note
+>
+> Original path: `docs/technical-roadmap.md`
+> Reason: historical implementation roadmap. The active repo has already moved past these phases, and some topology/interface notes are stale.
+> Replacement: `docs/architecture.md`, `docs/developer/architecture.md`, and `docs/adr/ADR-001-swift-cli-and-swift-wrapper.md`.
+
 ## Product Direction
 
 `Buoy` is a lightweight macOS utility for keeping a plugged-in Mac in a server-friendly power profile without hiding the underlying system behavior. The launch build should stay intentionally narrow:

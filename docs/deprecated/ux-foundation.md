@@ -1,5 +1,11 @@
 # Buoy UX Foundation
 
+> Deprecated note
+>
+> Original path: `docs/ux-foundation.md`
+> Reason: historical UX direction for an earlier single-window layout. The shipped app now has a sidebar dashboard and source-backed section docs.
+> Replacement: `docs/interface-tour.md`, `docs/settings-reference.md`, and `docs/style-guide.md`.
+
 ## UX Goal
 
 The app should feel like a native control surface for the CLI, not a separate product tier. The ideal user can understand the whole interface in under ten seconds.

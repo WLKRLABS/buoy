@@ -1,5 +1,11 @@
 # Launch Risks
 
+> Deprecated note
+>
+> Original path: `docs/launch-risks.md`
+> Reason: historical launch validation notes from the 1.0.0 release path. Active release, support, and distribution claims now live in current docs.
+> Replacement: `docs/compatibility.md`, `docs/developer/release-process.md`, and `docs/architecture.md`.
+
 ## Resolved Toolchain Issue
 
 The earlier local Swift build blocker is resolved.
