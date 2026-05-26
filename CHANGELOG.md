@@ -10,6 +10,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Fixed
 
+### Removed
+
+
+## [1.1.1] - 2026-05-26
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fixed the Storage capacity breakdown legend so labels no longer clip or overflow when the breakdown needs more space.
 
 ### Removed
