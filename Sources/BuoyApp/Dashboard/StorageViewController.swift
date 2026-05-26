@@ -119,12 +119,9 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         spinner.controlSize = .small
         spinner.isDisplayedWhenStopped = false
 
-        summaryRefreshButton.bezelStyle = .rounded
-        summaryRefreshButton.contentTintColor = BuoyChrome.secondaryTextColor
-        refreshButton.bezelStyle = .rounded
-        refreshButton.contentTintColor = BuoyChrome.accentColor
-        revealButton.bezelStyle = .rounded
-        revealButton.contentTintColor = BuoyChrome.primaryTextColor
+        summaryRefreshButton.applyBuoyButtonStyle(.neutral)
+        refreshButton.applyBuoyButtonStyle(.primary)
+        revealButton.applyBuoyButtonStyle(.neutral)
 
         table.tableView.delegate = self
         table.tableView.dataSource = self
@@ -259,6 +256,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
             let button = NSButton(title: "Grant...", target: self, action: #selector(protectedGrantPressed(_:)))
             button.tag = index
+            button.applyBuoyButtonStyle(.neutral)
             protectedButtons[scope] = button
 
             let title = NSTextField(labelWithString: scope.title)
@@ -285,6 +283,7 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
         customLocationsSwitch.action = #selector(customLocationsToggleChanged(_:))
         customLocationsButton.target = self
         customLocationsButton.action = #selector(chooseCustomLocationsPressed)
+        customLocationsButton.applyBuoyButtonStyle(.neutral)
         customLocationsStatusLabel.font = .systemFont(ofSize: 11)
         customLocationsStatusLabel.textColor = BuoyChrome.secondaryTextColor
         customLocationsStatusLabel.lineBreakMode = .byTruncatingMiddle

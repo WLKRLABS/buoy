@@ -342,8 +342,8 @@ final class BuoyViewController: NSViewController {
     private let pollValue = NSTextField(labelWithString: "20 sec")
     private let appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
-    private lazy var applyButton = makeButton(title: "Apply", action: #selector(applyPressed), tone: .accent)
-    private lazy var turnOffButton = makeButton(title: "Turn Off", action: #selector(turnOffPressed), tone: .critical)
+    private lazy var applyButton = makeButton(title: "Apply", action: #selector(applyPressed), tone: .primary)
+    private lazy var turnOffButton = makeButton(title: "Turn Off", action: #selector(turnOffPressed), tone: .restorative)
     private lazy var screenOffButton = makeButton(title: "Sleep Display", action: #selector(screenOffPressed), tone: .neutral)
     private lazy var refreshButton = makeButton(title: "Refresh", action: #selector(refreshPressed), tone: .neutral)
 
@@ -483,13 +483,13 @@ final class BuoyViewController: NSViewController {
         let button = NSButton(checkboxWithTitle: title, target: nil, action: nil)
         button.setButtonType(.switch)
         button.font = .systemFont(ofSize: 13, weight: .medium)
+        button.contentTintColor = BuoyChrome.accentColor
         return button
     }
 
-    private func makeButton(title: String, action: Selector, tone: DashboardMetricTone) -> NSButton {
+    private func makeButton(title: String, action: Selector, tone: DashboardButtonTone) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
-        button.bezelStyle = .rounded
-        button.contentTintColor = tone.color
+        button.applyBuoyButtonStyle(tone)
         return button
     }
 
@@ -526,7 +526,7 @@ final class BuoyViewController: NSViewController {
         facts.spacing = 10
 
         let container = NSView()
-        container.applyBuoySurface(cornerRadius: 8, fillColor: BuoyChrome.elevatedBackgroundColor)
+        container.applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         let stack = NSStackView(views: [header, facts])
         stack.orientation = .vertical
@@ -614,7 +614,7 @@ final class BuoyViewController: NSViewController {
         content.spacing = 12
 
         let panel = NSView()
-        panel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        panel.applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
         panel.addSubview(content)
         content.pinEdges(to: panel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
         return panel
@@ -626,7 +626,7 @@ final class BuoyViewController: NSViewController {
         content.spacing = 12
 
         let panel = NSView()
-        panel.applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        panel.applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
         panel.addSubview(content)
         content.pinEdges(to: panel, insets: NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16))
         return panel
@@ -678,6 +678,9 @@ final class BuoyViewController: NSViewController {
             let appearance = NSAppearance(named: .darkAqua)
             view.window?.appearance = appearance
             NSApp.appearance = appearance
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.view.window?.contentView?.refreshBuoySurfaceColorsRecursively()
         }
         updateBehaviorSummary()
     }

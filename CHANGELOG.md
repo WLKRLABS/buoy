@@ -8,7 +8,19 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Changed
 
-- Reworked the documentation front door, added canonical docs map/glossary/style/architecture pages, and moved stale planning notes into `docs/deprecated/`.
+### Fixed
+
+### Removed
+
+
+## [1.1.0] - 2026-05-26
+
+### Added
+
+### Changed
+
+- Redesigned the native app dashboard chrome, sidebar, buttons, status badges, cards, and table surfaces around the new Buoy design system.
+- Reworked the root README and documentation front door, added canonical docs map/glossary/style/architecture pages, and moved stale planning notes into `docs/deprecated/`.
 
 ### Fixed
 

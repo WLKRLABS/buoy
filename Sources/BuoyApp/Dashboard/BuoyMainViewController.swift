@@ -105,6 +105,7 @@ private final class SidebarSectionRowView: NSTableRowView {
 private final class SidebarSectionCellView: NSTableCellView {
     private let symbolView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let hotkeyLabel = NSTextField(labelWithString: "")
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -119,14 +120,20 @@ private final class SidebarSectionCellView: NSTableCellView {
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
-        let stack = NSStackView(views: [symbolView, titleLabel, NSView()])
+        hotkeyLabel.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
+        hotkeyLabel.textColor = BuoyChrome.tertiaryTextColor
+        hotkeyLabel.alignment = .right
+        hotkeyLabel.setContentHuggingPriority(.required, for: .horizontal)
+        hotkeyLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let stack = NSStackView(views: [symbolView, titleLabel, NSView(), hotkeyLabel])
         stack.orientation = .horizontal
         stack.alignment = .centerY
-        stack.spacing = 12
+        stack.spacing = 10
         addSubview(stack)
         stack.pinEdges(
             to: self,
-            insets: NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 18)
+            insets: NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         )
     }
 
@@ -138,6 +145,8 @@ private final class SidebarSectionCellView: NSTableCellView {
         symbolView.contentTintColor = selected ? BuoyChrome.accentColor : BuoyChrome.secondaryTextColor
         titleLabel.stringValue = section.title
         titleLabel.textColor = selected ? BuoyChrome.primaryTextColor : BuoyChrome.primaryTextColor
+        hotkeyLabel.stringValue = section.hotkeyHint
+        hotkeyLabel.textColor = selected ? BuoyChrome.accentColor : BuoyChrome.tertiaryTextColor
         toolTip = "\(section.title) \(section.hotkeyHint)"
     }
 }
@@ -146,8 +155,8 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
     weak var delegate: BuoySidebarSelectionDelegate?
 
     private let titleLabel = NSTextField(labelWithString: buoyProductName)
-    private let subtitleLabel = NSTextField(labelWithString: "Quiet machine utility for power users.")
-    private let footerLabel = NSTextField(wrappingLabelWithString: "Cmd+1-7 sections | Cmd+[ / Cmd+] cycle | Cmd+W close")
+    private let subtitleLabel = NSTextField(labelWithString: "CLI-backed Mac utility for power users.")
+    private let footerLabel = NSTextField(wrappingLabelWithString: "⌘1-7 sections  ⌘[ / ⌘] cycle  ⌘W close")
     private let versionLabel = NSTextField(labelWithString: "v\(buoyVersion)")
     private let scrollView = NSScrollView()
     private let tableView = NSTableView()
@@ -216,7 +225,7 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
         tableView.headerView = nil
         tableView.focusRingType = .none
         tableView.selectionHighlightStyle = .regular
-        tableView.rowHeight = 38
+        tableView.rowHeight = 40
         tableView.intercellSpacing = NSSize(width: 0, height: 4)
         tableView.backgroundColor = .clear
         tableView.delegate = self
@@ -249,7 +258,7 @@ private final class BuoySidebarViewController: NSViewController, NSTableViewData
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        38
+        40
     }
 
     func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
@@ -287,7 +296,7 @@ private final class DashboardContentHostViewController: NSViewController {
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(wrappingLabelWithString: "")
     private let symbolView = NSImageView()
-    private let divider = NSView()
+    private let headerPanel = NSView()
     private let contentContainer = NSView()
     private var currentController: NSViewController?
 
@@ -316,6 +325,10 @@ private final class DashboardContentHostViewController: NSViewController {
         addChild(controller)
         contentContainer.addSubview(controller.view)
         controller.view.pinEdges(to: contentContainer)
+
+        DispatchQueue.main.async { [weak self] in
+            self?.view.window?.contentView?.refreshBuoySurfaceColorsRecursively()
+        }
     }
 
     private func buildLayout() {
@@ -332,9 +345,6 @@ private final class DashboardContentHostViewController: NSViewController {
         symbolView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 20, weight: .semibold)
         symbolView.contentTintColor = BuoyChrome.accentColor
 
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = BuoyChrome.separatorColor.cgColor
-
         let titleRow = NSStackView(views: [symbolView, titleLabel])
         titleRow.orientation = .horizontal
         titleRow.alignment = .centerY
@@ -346,24 +356,25 @@ private final class DashboardContentHostViewController: NSViewController {
         headerStack.spacing = 4
 
         headerStack.translatesAutoresizingMaskIntoConstraints = false
-        divider.translatesAutoresizingMaskIntoConstraints = false
+        headerPanel.translatesAutoresizingMaskIntoConstraints = false
         contentContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        view.addSubview(headerStack)
-        view.addSubview(divider)
+        headerPanel.applyBuoySurface(cornerRadius: BuoyRadius.xLarge, fillColor: BuoyChrome.panelBackgroundColor, borderColor: BuoyChrome.borderColor)
+        headerPanel.addSubview(headerStack)
+        view.addSubview(headerPanel)
         view.addSubview(contentContainer)
 
         NSLayoutConstraint.activate([
-            headerStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
-            headerStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
-            headerStack.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            divider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
-            divider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
-            divider.topAnchor.constraint(equalTo: headerStack.bottomAnchor, constant: 16),
-            divider.heightAnchor.constraint(equalToConstant: 1),
+            headerPanel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 28),
+            headerPanel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -28),
+            headerPanel.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
+            headerStack.leadingAnchor.constraint(equalTo: headerPanel.leadingAnchor, constant: 20),
+            headerStack.trailingAnchor.constraint(equalTo: headerPanel.trailingAnchor, constant: -20),
+            headerStack.topAnchor.constraint(equalTo: headerPanel.topAnchor, constant: 16),
+            headerStack.bottomAnchor.constraint(equalTo: headerPanel.bottomAnchor, constant: -16),
             contentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             contentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            contentContainer.topAnchor.constraint(equalTo: divider.bottomAnchor),
+            contentContainer.topAnchor.constraint(equalTo: headerPanel.bottomAnchor, constant: 18),
             contentContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }

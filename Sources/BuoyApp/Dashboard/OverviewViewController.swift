@@ -27,7 +27,7 @@ private struct OverviewPosture {
 public final class OverviewViewController: NSViewController, DashboardConsumer {
     private let currentTimestampLabel = NSTextField(labelWithString: "Awaiting first sample")
     private let historyWindowLabel = NSTextField(labelWithString: "Collecting samples")
-    private let postureBadge = OverviewToneBadgeView()
+    private let postureBadge = DashboardStatusBadgeView()
     private let postureTitleLabel = NSTextField(labelWithString: "Waiting for live data")
     private let postureDetailLabel = NSTextField(wrappingLabelWithString: "Buoy will assemble the current machine story as soon as the first dashboard snapshot arrives.")
 
@@ -108,7 +108,7 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
             preferredSecondaryWidth: 320
         )
 
-        let currentStage = OverviewStageView(
+        let currentStage = DashboardStageView(
             sectionLabel: "Now",
             title: "Current Machine State",
             subtitle: "The machine right now, arranged to be trusted at a glance.",
@@ -119,7 +119,7 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
         let trendsGrid = AdaptiveGridView(minColumnWidth: 280, maxColumns: 2, rowSpacing: 14, columnSpacing: 14)
         trendsGrid.setItems([cpuTrendCard, memoryTrendCard, thermalTrendCard, powerTrendCard])
 
-        let trendsStage = OverviewStageView(
+        let trendsStage = DashboardStageView(
             sectionLabel: "Behavior",
             title: "Recent Behavior",
             subtitle: "Short rolling histories show how the system has been behaving, not just what it says now.",
@@ -130,7 +130,7 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
         let inspectionGrid = AdaptiveGridView(minColumnWidth: 280, maxColumns: 3, rowSpacing: 14, columnSpacing: 14)
         inspectionGrid.setItems([cpuLeadersPanel, memoryLeadersPanel, machineFactsPanel])
 
-        let inspectionStage = OverviewStageView(
+        let inspectionStage = DashboardStageView(
             sectionLabel: "Inspection",
             title: "Lower-Priority Details",
             subtitle: "Deeper process and power detail stays lower in the layout so it remains available without competing."
@@ -599,125 +599,6 @@ public final class OverviewViewController: NSViewController, DashboardConsumer {
     }
 }
 
-private final class OverviewStageView: NSView {
-    private let sectionLabel = NSTextField(labelWithString: "")
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let subtitleLabel = NSTextField(wrappingLabelWithString: "")
-    private let divider = NSView()
-    private let accessoryContainer = NSView()
-
-    init(sectionLabel: String, title: String, subtitle: String, accessory: NSView? = nil) {
-        super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 16, fillColor: BuoyChrome.panelBackgroundColor, borderColor: BuoyChrome.borderColor)
-
-        self.sectionLabel.stringValue = sectionLabel.uppercased()
-        self.sectionLabel.font = .buoySectionLabelFont()
-        self.sectionLabel.textColor = BuoyChrome.secondaryTextColor
-
-        titleLabel.stringValue = title
-        titleLabel.font = .systemFont(ofSize: 22, weight: .semibold)
-        titleLabel.textColor = BuoyChrome.primaryTextColor
-
-        subtitleLabel.stringValue = subtitle
-        subtitleLabel.font = .systemFont(ofSize: 13)
-        subtitleLabel.textColor = BuoyChrome.secondaryTextColor
-        subtitleLabel.maximumNumberOfLines = 2
-
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = BuoyChrome.separatorColor.cgColor
-
-        let titleStack = NSStackView(views: [self.sectionLabel, titleLabel, subtitleLabel])
-        titleStack.orientation = .vertical
-        titleStack.alignment = .leading
-        titleStack.spacing = 4
-
-        let header = NSStackView(views: [titleStack, NSView(), accessoryContainer])
-        header.orientation = .horizontal
-        header.alignment = .top
-        header.spacing = 16
-        header.translatesAutoresizingMaskIntoConstraints = false
-
-        divider.translatesAutoresizingMaskIntoConstraints = false
-
-        addSubview(header)
-        addSubview(divider)
-
-        NSLayoutConstraint.activate([
-            header.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            header.topAnchor.constraint(equalTo: topAnchor, constant: 18),
-            divider.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            divider.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 16),
-            divider.heightAnchor.constraint(equalToConstant: 1)
-        ])
-
-        setAccessory(accessory)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
-
-    func setAccessory(_ accessory: NSView?) {
-        accessoryContainer.subviews.forEach { $0.removeFromSuperview() }
-        guard let accessory else {
-            accessoryContainer.isHidden = true
-            return
-        }
-
-        accessoryContainer.isHidden = false
-        accessoryContainer.addSubview(accessory)
-        accessory.pinEdges(to: accessoryContainer)
-    }
-
-    func pinContent(_ child: NSView, bottomInset: CGFloat = 20) {
-        addSubview(child)
-        child.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            child.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 20),
-            child.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
-            child.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 18),
-            child.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -bottomInset)
-        ])
-    }
-}
-
-private final class OverviewToneBadgeView: NSView {
-    private let label = NSTextField(labelWithString: "")
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        applyBuoySurface(cornerRadius: 999, fillColor: BuoyChrome.accentFillColor, borderColor: BuoyChrome.accentBorderColor)
-
-        label.font = .monospacedSystemFont(ofSize: 10, weight: .semibold)
-        label.textColor = BuoyChrome.accentColor
-        addSubview(label)
-        label.pinEdges(to: self, insets: NSEdgeInsets(top: 4, left: 10, bottom: 4, right: 10))
-
-        setContentHuggingPriority(.required, for: .horizontal)
-        setContentCompressionResistancePriority(.required, for: .horizontal)
-        widthAnchor.constraint(greaterThanOrEqualToConstant: 64).isActive = true
-        heightAnchor.constraint(equalToConstant: 24).isActive = true
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
-
-    override var intrinsicContentSize: NSSize {
-        let labelSize = label.fittingSize
-        return NSSize(width: labelSize.width + 20, height: labelSize.height + 8)
-    }
-
-    func set(text: String, tone: DashboardMetricTone) {
-        label.stringValue = text.uppercased()
-        layer?.backgroundColor = tone.fillColor.cgColor
-        layer?.borderColor = tone.color.withAlphaComponent(0.35).cgColor
-        label.textColor = tone.color
-        invalidateIntrinsicContentSize()
-        superview?.needsLayout = true
-    }
-}
-
 private final class OverviewStateCellView: NSView {
     private let titleLabel = NSTextField(labelWithString: "")
     private let valueLabel = NSTextField(labelWithString: "0%")
@@ -730,7 +611,7 @@ private final class OverviewStateCellView: NSView {
 
     init(title: String) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -887,7 +768,7 @@ private final class OverviewFactsPanelView: NSView {
 
     init(title: String) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -953,7 +834,7 @@ private final class OverviewTrendCardView: NSView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.font = .buoySectionLabelFont()
         titleLabel.textColor = BuoyChrome.secondaryTextColor
@@ -1083,7 +964,7 @@ private final class OverviewProcessListView: NSView {
 
     init(title: String) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()

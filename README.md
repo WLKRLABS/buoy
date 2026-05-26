@@ -1,93 +1,91 @@
 # <img src="./buoy-icon.png" alt="Buoy icon" width="72" align="center" /> Buoy
 
-> Keep a Mac awake on AC power, restore the original sleep settings cleanly, and inspect the machine from a native macOS dashboard.
+> Keep a Mac awake on AC power, let the display sleep on its own timer, and restore the original AC settings cleanly.
 
-Buoy is a macOS-only utility with two surfaces:
+Buoy is a macOS-only utility for Macs that need to stay available without turning power settings into guesswork. It ships as two surfaces:
 
-- `buoy`, a CLI that owns power-state changes and restore behavior
-- `Buoy.app`, a native wrapper that drives the CLI and adds live system inspection
+- `buoy`, the CLI and source of truth for power-state changes.
+- `Buoy.app`, a native AppKit dashboard that drives the CLI and adds live system inspection.
 
 ## Quick start
 
-Install from the latest GitHub release:
+Install the latest GitHub release:
 
 ```bash
 curl -fsSL https://github.com/WLKRLABS/buoy/releases/latest/download/install.sh | bash
 ```
 
-Install from a local clone:
-
-```bash
-./install.sh
-```
-
-Then verify the install:
+Verify the install:
 
 ```bash
 buoy doctor
 buoy status
 ```
 
-If `~/.local/bin` is not on your shell `PATH`, run:
+If your shell cannot find `buoy`, add the default install directory to `PATH`:
 
 ```bash
 buoy path-add
 ```
 
-## What Buoy does
+Default install locations:
 
-- applies a server-friendly AC power profile with `pmset`
-- keeps display sleep configurable instead of forcing the screen on
-- optionally manages closed-lid awake behavior above a battery floor
-- restores the previously saved AC settings with `buoy off`
-- shows live Overview, Power, System, Processes, Services, Network, and Storage sections in the app
-- scans storage in two passes: a fast summary refresh and an explicit deep scan for largest files
+| Artifact | Default path |
+| --- | --- |
+| CLI | `~/.local/bin/buoy` |
+| App | `~/Applications/Buoy.app` |
 
-## What Buoy does not do
+## Source-backed status
 
-- it does not manage non-macOS systems
-- it does not auto-start at login or auto-apply on boot in the current repo
-- it does not clean files automatically
-- it does not replace `pmset`; it applies a narrow set of reversible settings on top of it
+| Area | Current repo fact |
+| --- | --- |
+| Version source | `VERSION` is the source of truth for CLI, app bundle, tags, and release assets. |
+| Platform | macOS only. `Buoy.app` declares `LSMinimumSystemVersion` `13.0`. |
+| Release shape | GitHub releases package `buoy`, `Buoy.app.zip`, `install.sh`, and `SHA256SUMS.txt`. |
+| Architecture | Current release assets are Apple Silicon only. The build scripts emit native host binaries, not universal binaries. |
+| Runtime state | Power restore state lives at `~/.buoy/state.json`. |
+| Distribution limit | GitHub release downloads are not notarized in the current repo. |
 
-## Common commands
+## What Buoy changes
 
-```bash
-buoy apply
-buoy apply --display-sleep 5
-buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 15
-buoy status
-buoy status --json
-buoy off
-buoy screen-off
-buoy doctor
-```
+`buoy apply` reads the current AC power profile, saves a restore point, and applies a narrow managed profile:
 
-## What `buoy apply` changes
+| `pmset` key | Managed value |
+| --- | --- |
+| `sleep` | `0` |
+| `displaysleep` | chosen minutes |
+| `standby` | `0` |
+| `powernap` | `0` |
+| `womp` | `1` |
+| `ttyskeepawake` | `1` |
+| `tcpkeepalive` | `1` |
 
-`buoy apply` reads the current AC profile, saves the original values, and applies a managed AC profile.
+`buoy off` restores the saved AC values from the state file and clears closed-lid helper state when Buoy mode is off.
 
-Managed keys:
+Buoy does not replace `pmset`. It adds a reversible layer on top of the macOS power tools that already exist on the machine.
 
-- `sleep=0`
-- `displaysleep=<minutes>`
-- `standby=0`
-- `powernap=0`
-- `womp=1`
-- `ttyskeepawake=1`
-- `tcpkeepalive=1`
+## Commands
 
-`buoy off` restores the saved AC values from `~/.buoy/state.json` and stops the closed-lid helper if it is running.
+| Command | Use |
+| --- | --- |
+| `buoy apply` | Enable Buoy mode with the default display sleep timer. |
+| `buoy apply --display-sleep 5` | Keep the Mac awake while allowing display sleep after 5 minutes. |
+| `buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 15` | Enable closed-lid awake mode above a battery floor. |
+| `buoy status` | Show the current human-readable state. |
+| `buoy status --json` | Emit machine-readable state for scripts. |
+| `buoy off` | Restore the saved AC profile. |
+| `buoy screen-off` | Sleep the display now. |
+| `buoy doctor` | Check local runtime dependencies and state paths. |
+
+Use `--dry-run` with apply, off, screen-off, or path-add when you want to inspect the action first.
 
 ## Closed-lid awake mode
 
-When you pass `--clam`, Buoy also manages `SleepDisabled`.
+Closed-lid awake mode is optional. When enabled with `--clam`, Buoy manages `SleepDisabled` from a helper process:
 
-Behavior:
-
-- `SleepDisabled=1` on AC power
-- `SleepDisabled=1` on battery above the configured threshold
-- `SleepDisabled=0` at or below the threshold unless it was already enabled before Buoy
+- `SleepDisabled=1` on AC power.
+- `SleepDisabled=1` on battery above the configured floor.
+- `SleepDisabled=0` at or below the floor unless it was already enabled before Buoy.
 
 Example:
 
@@ -95,9 +93,9 @@ Example:
 buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 10
 ```
 
-## App overview
+## Buoy.app
 
-`Buoy.app` is not a separate control path. It drives the installed CLI and adds a native dashboard.
+`Buoy.app` is the native control surface, not a separate power engine. It resolves and runs the installed CLI for power actions.
 
 Power controls:
 
@@ -119,19 +117,13 @@ Dashboard sections:
 - Network
 - Storage
 
-Storage workflow highlights:
+Storage opens from cached data when it can, refreshes summaries in the background, and runs the slower largest-file enumeration only when you choose `Deep Scan`. Protected folders and extra drives stay opt-in.
 
-- cached snapshots for fast tab open
-- background summary refreshes
-- explicit `Deep Scan` for largest-file enumeration
-- opt-in protected-folder grants for Desktop, Documents, Downloads, and Pictures
-- saved bookmarks for extra folders and drives
+## Documentation path
 
-Privileged writes use the standard macOS administrator prompt. Normal reads run through the CLI or local system APIs without extra elevation.
+Start with [Documentation](docs/README.md) when you need the full manual.
 
-## Documentation
-
-Start with [Documentation](docs/README.md). The main path is:
+Most readers need:
 
 - [Overview](docs/overview.md)
 - [Getting started](docs/getting-started.md)
@@ -140,7 +132,13 @@ Start with [Documentation](docs/README.md). The main path is:
 - [Workflows](docs/workflows.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-Maintainers should also read [Architecture](docs/architecture.md), [Style guide](docs/style-guide.md), and [Glossary](docs/glossary.md).
+Maintainers should also read:
+
+- [Architecture](docs/architecture.md)
+- [Build and run](docs/developer/build-and-run.md)
+- [Release process](docs/developer/release-process.md)
+- [Style guide](docs/style-guide.md)
+- [Glossary](docs/glossary.md)
 
 ## Build from source
 
@@ -156,6 +154,12 @@ Build the app:
 ./scripts/build-app.sh
 ```
 
+Install from a local clone:
+
+```bash
+./install.sh
+```
+
 Optional local signing for stable permissions across repeated local app installs:
 
 ```bash
@@ -163,7 +167,9 @@ Optional local signing for stable permissions across repeated local app installs
 ./scripts/build-app.sh
 ```
 
-Package release assets:
+## Release maintenance
+
+Package and verify release assets:
 
 ```bash
 ./scripts/package-release.sh
@@ -185,13 +191,17 @@ bash scripts/validate-versioning.sh
 ./scripts/render-release-notes.sh
 ```
 
+`VERSION` is the source of truth for the CLI version, app bundle version, release tags, and packaged assets.
+
 ## Current limits
 
-- macOS only
-- Apple Silicon release assets only
-- `Buoy.app` declares `LSMinimumSystemVersion` `13.0`
-- privileged power changes still depend on standard macOS administrator authentication
-- closed-lid awake mode uses a helper process
-- GitHub release downloads are not notarized in the current repo
-- source builds require a working Apple Swift toolchain
-- current build scripts emit native binaries for the build host instead of universal binaries
+- macOS only.
+- Apple Silicon release assets only.
+- `Buoy.app` declares `LSMinimumSystemVersion` `13.0`.
+- Privileged power changes depend on standard macOS administrator authentication.
+- Closed-lid awake mode uses a helper process.
+- GitHub release downloads are not notarized in the current repo.
+- Source builds require a working Apple Swift toolchain.
+- Current build scripts emit native binaries for the build host instead of universal binaries.
+- Buoy does not auto-start at login or auto-apply on boot in the current repo.
+- Buoy inspects storage but does not delete files automatically.

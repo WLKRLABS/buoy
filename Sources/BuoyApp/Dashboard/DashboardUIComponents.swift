@@ -1,5 +1,9 @@
 import AppKit
 import Foundation
+import ObjectiveC
+
+private var buoySurfaceFillColorKey: UInt8 = 0
+private var buoySurfaceBorderColorKey: UInt8 = 0
 
 enum BuoySpacing {
     static let xSmall: CGFloat = 4
@@ -8,6 +12,15 @@ enum BuoySpacing {
     static let large: CGFloat = 16
     static let xLarge: CGFloat = 24
     static let xxLarge: CGFloat = 32
+}
+
+enum BuoyRadius {
+    static let none: CGFloat = 0
+    static let small: CGFloat = 4
+    static let medium: CGFloat = 8
+    static let large: CGFloat = 12
+    static let xLarge: CGFloat = 16
+    static let full: CGFloat = 999
 }
 
 enum DashboardMetricTone {
@@ -66,8 +79,8 @@ enum BuoyChrome {
     )
     static let buttonBackgroundColor = dynamicColor(
         name: "BuoyButtonBackground",
-        light: 0xEDF2EF,
-        dark: 0x181D1F
+        light: 0xF4F7F5,
+        dark: 0x202629
     )
     static let contentBackgroundColor = dynamicColor(
         name: "BuoyContentBackground",
@@ -111,7 +124,7 @@ enum BuoyChrome {
     )
     static let warningColor = dynamicColor(
         name: "BuoyWarning",
-        light: 0xA46E27,
+        light: 0x6F4A16,
         dark: 0xD0AE6A
     )
     static let warningFillColor = dynamicColor(
@@ -121,7 +134,7 @@ enum BuoyChrome {
     )
     static let criticalColor = dynamicColor(
         name: "BuoyCritical",
-        light: 0xA1554B,
+        light: 0x7D3832,
         dark: 0xD68B7E
     )
     static let criticalFillColor = dynamicColor(
@@ -133,6 +146,11 @@ enum BuoyChrome {
         name: "BuoyPrimaryText",
         light: 0x1C2325,
         dark: 0xE8ECE9
+    )
+    static let onPrimaryTextColor = dynamicColor(
+        name: "BuoyOnPrimaryText",
+        light: 0xFFFFFF,
+        dark: 0x111416
     )
     static let secondaryTextColor = dynamicColor(
         name: "BuoySecondaryText",
@@ -146,14 +164,44 @@ enum BuoyChrome {
     )
 
     static func applyWindowBackground(to view: NSView) {
-        view.wantsLayer = true
-        view.layer?.backgroundColor = windowBackgroundColor.cgColor
+        view.applyBuoySurface(
+            cornerRadius: BuoyRadius.none,
+            fillColor: windowBackgroundColor,
+            borderColor: .clear,
+            borderWidth: 0
+        )
     }
 
     private static func dynamicColor(name: String, light: UInt32, dark: UInt32) -> NSColor {
         NSColor(name: NSColor.Name(name)) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             return NSColor(hex: isDark ? dark : light)
+        }
+    }
+}
+
+enum DashboardButtonTone {
+    case primary
+    case neutral
+    case restorative
+
+    var fillColor: NSColor {
+        switch self {
+        case .primary:
+            return BuoyChrome.accentColor
+        case .neutral, .restorative:
+            return BuoyChrome.buttonBackgroundColor
+        }
+    }
+
+    var textColor: NSColor {
+        switch self {
+        case .primary:
+            return BuoyChrome.onPrimaryTextColor
+        case .neutral:
+            return BuoyChrome.primaryTextColor
+        case .restorative:
+            return BuoyChrome.criticalColor
         }
     }
 }
@@ -169,7 +217,7 @@ extension NSColor {
 
 extension NSView {
     func applyBuoySurface(
-        cornerRadius: CGFloat = 10,
+        cornerRadius: CGFloat = BuoyRadius.large,
         fillColor: NSColor = BuoyChrome.panelBackgroundColor,
         borderColor: NSColor = BuoyChrome.borderColor,
         borderWidth: CGFloat = 1
@@ -177,9 +225,26 @@ extension NSView {
         wantsLayer = true
         layer?.cornerRadius = cornerRadius
         layer?.borderWidth = borderWidth
-        layer?.borderColor = borderColor.cgColor
-        layer?.backgroundColor = fillColor.cgColor
+        objc_setAssociatedObject(self, &buoySurfaceFillColorKey, fillColor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(self, &buoySurfaceBorderColorKey, borderColor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        refreshBuoySurfaceColors()
         layer?.masksToBounds = true
+    }
+
+    func refreshBuoySurfaceColorsRecursively() {
+        refreshBuoySurfaceColors()
+        subviews.forEach { $0.refreshBuoySurfaceColorsRecursively() }
+    }
+
+    private func refreshBuoySurfaceColors() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            if let fillColor = objc_getAssociatedObject(self, &buoySurfaceFillColorKey) as? NSColor {
+                layer?.backgroundColor = fillColor.cgColor
+            }
+            if let borderColor = objc_getAssociatedObject(self, &buoySurfaceBorderColorKey) as? NSColor {
+                layer?.borderColor = borderColor.cgColor
+            }
+        }
     }
 
     func pinEdges(
@@ -203,6 +268,32 @@ extension NSFont {
 
     static func buoyMetricValueFont() -> NSFont {
         .monospacedDigitSystemFont(ofSize: 24, weight: .semibold)
+    }
+}
+
+extension NSButton {
+    func applyBuoyButtonStyle(_ tone: DashboardButtonTone) {
+        let buttonFont = NSFont.systemFont(ofSize: 13, weight: .medium)
+        bezelStyle = .rounded
+        controlSize = .regular
+        bezelColor = tone.fillColor
+        contentTintColor = tone.textColor
+        font = buttonFont
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .font: buttonFont,
+                .foregroundColor: tone.textColor,
+                .paragraphStyle: paragraph
+            ]
+        )
+
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(greaterThanOrEqualToConstant: 32).isActive = true
+        setContentHuggingPriority(.required, for: .horizontal)
     }
 }
 
@@ -373,7 +464,7 @@ final class DashboardStageView: NSView {
 
     init(sectionLabel: String, title: String, subtitle: String, accessory: NSView? = nil) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 16, fillColor: BuoyChrome.panelBackgroundColor, borderColor: BuoyChrome.borderColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.xLarge, fillColor: BuoyChrome.panelBackgroundColor, borderColor: BuoyChrome.borderColor)
 
         self.sectionLabel.stringValue = sectionLabel.uppercased()
         self.sectionLabel.font = .buoySectionLabelFont()
@@ -443,6 +534,43 @@ final class DashboardStageView: NSView {
             child.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 18),
             child.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -bottomInset)
         ])
+    }
+}
+
+final class DashboardStatusBadgeView: NSView {
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        applyBuoySurface(cornerRadius: BuoyRadius.full, fillColor: BuoyChrome.accentFillColor, borderColor: BuoyChrome.accentBorderColor)
+
+        label.font = .buoySectionLabelFont()
+        label.textColor = BuoyChrome.accentColor
+        label.alignment = .center
+        addSubview(label)
+        label.pinEdges(to: self, insets: NSEdgeInsets(top: 4, left: 10, bottom: 4, right: 10))
+
+        setContentHuggingPriority(.required, for: .horizontal)
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        widthAnchor.constraint(greaterThanOrEqualToConstant: 64).isActive = true
+        heightAnchor.constraint(equalToConstant: 24).isActive = true
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize {
+        let labelSize = label.fittingSize
+        return NSSize(width: labelSize.width + 20, height: labelSize.height + 8)
+    }
+
+    func set(text: String, tone: DashboardMetricTone) {
+        label.stringValue = text.uppercased()
+        layer?.backgroundColor = tone.fillColor.cgColor
+        layer?.borderColor = tone.color.withAlphaComponent(0.35).cgColor
+        label.textColor = tone.color
+        invalidateIntrinsicContentSize()
+        superview?.needsLayout = true
     }
 }
 
@@ -529,7 +657,7 @@ final class DashboardFactsPanelView: NSView {
 
     init(title: String) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -599,7 +727,7 @@ final class DashboardMetricRowView: NSView {
 
     init(title: String) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 12, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -681,7 +809,7 @@ final class DashboardMetricCardView: NSView {
 
     init(title: String, tone: DashboardMetricTone = .accent) {
         super.init(frame: .zero)
-        applyBuoySurface()
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -741,7 +869,7 @@ final class DashboardSectionView: NSView {
 
     init(title: String, subtitle: String? = nil, accessory: NSView? = nil) {
         super.init(frame: .zero)
-        applyBuoySurface()
+        applyBuoySurface(cornerRadius: BuoyRadius.large, fillColor: BuoyChrome.elevatedBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         titleLabel.stringValue = title.uppercased()
         titleLabel.font = .buoySectionLabelFont()
@@ -803,13 +931,13 @@ final class DashboardSectionView: NSView {
         accessory.pinEdges(to: accessoryContainer)
     }
 
-    func pinContent(_ child: NSView, top: CGFloat = 50, bottom: CGFloat = 16) {
+    func pinContent(_ child: NSView, top: CGFloat = 14, bottom: CGFloat = 16) {
         addSubview(child)
         child.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             child.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             child.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            child.topAnchor.constraint(equalTo: topAnchor, constant: top),
+            child.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: top),
             child.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -bottom)
         ])
     }
@@ -821,7 +949,7 @@ final class DashboardTableContainer: NSView {
 
     init(columns: [(id: NSUserInterfaceItemIdentifier, title: String, width: CGFloat)]) {
         super.init(frame: .zero)
-        applyBuoySurface(cornerRadius: 8, fillColor: BuoyChrome.tableBackgroundColor)
+        applyBuoySurface(cornerRadius: BuoyRadius.medium, fillColor: BuoyChrome.tableBackgroundColor, borderColor: BuoyChrome.gridColor)
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         scrollView.hasVerticalScroller = true
@@ -837,7 +965,7 @@ final class DashboardTableContainer: NSView {
         tableView.gridStyleMask = [.solidHorizontalGridLineMask]
         tableView.gridColor = BuoyChrome.gridColor
         tableView.intercellSpacing = NSSize(width: 0, height: 0)
-        tableView.rowHeight = 30
+        tableView.rowHeight = 32
         tableView.allowsEmptySelection = true
         tableView.rowSizeStyle = .default
         tableView.selectionHighlightStyle = .regular
