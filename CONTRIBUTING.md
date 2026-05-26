@@ -21,6 +21,7 @@ bash scripts/validate-versioning.sh
 ./scripts/build-app.sh
 ./scripts/test-storage-scanner.sh
 ./scripts/test-storage-cache.sh
+./scripts/test-storage-layout.sh
 ./scripts/package-release.sh
 ./scripts/verify-release.sh
 bash -n install.sh scripts/*.sh buoy

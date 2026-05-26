@@ -139,8 +139,14 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
 
         let breakdownStack = NSStackView(views: [breakdownView, breakdownLabel, highlightsLabel])
         breakdownStack.orientation = .vertical
+        breakdownStack.alignment = .leading
         breakdownStack.spacing = 10
-        breakdownView.heightAnchor.constraint(equalToConstant: 112).isActive = true
+        breakdownView.heightAnchor.constraint(greaterThanOrEqualToConstant: StorageBreakdownView.minimumHeight).isActive = true
+        NSLayoutConstraint.activate([
+            breakdownView.widthAnchor.constraint(equalTo: breakdownStack.widthAnchor),
+            breakdownLabel.widthAnchor.constraint(equalTo: breakdownStack.widthAnchor),
+            highlightsLabel.widthAnchor.constraint(equalTo: breakdownStack.widthAnchor)
+        ])
 
         let breakdownSection = DashboardSectionView(
             title: "Capacity Breakdown",
@@ -1027,31 +1033,44 @@ public final class StorageViewController: NSViewController, NSTableViewDataSourc
     }
 }
 
-private final class StorageBreakdownView: NSView {
+final class StorageBreakdownView: NSView {
+    static let minimumHeight: CGFloat = 112
+
     private let barView = StorageStackedBarView()
     private let legendGrid = AdaptiveGridView(minColumnWidth: 160, maxColumns: 4, rowSpacing: 6, columnSpacing: 10)
+    private let stack = NSStackView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
 
-        let stack = NSStackView(views: [barView, legendGrid])
+        stack.addArrangedSubview(barView)
+        stack.addArrangedSubview(legendGrid)
         stack.orientation = .vertical
+        stack.alignment = .leading
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
 
         barView.heightAnchor.constraint(equalToConstant: 26).isActive = true
+        setContentCompressionResistancePriority(.required, for: .vertical)
 
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor)
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            barView.widthAnchor.constraint(equalTo: stack.widthAnchor),
+            legendGrid.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
+
+    override var intrinsicContentSize: NSSize {
+        let fitting = stack.fittingSize
+        return NSSize(width: NSView.noIntrinsicMetric, height: max(Self.minimumHeight, fitting.height))
+    }
 
     func setBreakdown(_ breakdown: [StorageCategorySummary], totalBytes: Int64) {
         barView.updateSegments(breakdown, totalBytes: totalBytes)
@@ -1065,6 +1084,8 @@ private final class StorageBreakdownView: NSView {
             )
         }
         legendGrid.setItems(chips)
+        invalidateIntrinsicContentSize()
+        needsLayout = true
     }
 }
 

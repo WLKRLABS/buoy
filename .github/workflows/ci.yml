@@ -45,6 +45,7 @@ jobs:
         run: |
           ./scripts/test-storage-scanner.sh
           ./scripts/test-storage-cache.sh
+          ./scripts/test-storage-layout.sh
 
       - name: Verify packaged release
         run: ./scripts/verify-release.sh

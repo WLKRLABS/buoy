@@ -396,7 +396,7 @@ final class AdaptiveGridView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override var intrinsicContentSize: NSSize {
-        rootStack.fittingSize
+        NSSize(width: NSView.noIntrinsicMetric, height: rootStack.fittingSize.height)
     }
 
     override func layout() {
@@ -445,6 +445,8 @@ final class AdaptiveGridView: NSView {
         }
 
         invalidateIntrinsicContentSize()
+        superview?.invalidateIntrinsicContentSize()
+        superview?.needsLayout = true
     }
 
     private func calculatedColumns(for width: CGFloat) -> Int {
