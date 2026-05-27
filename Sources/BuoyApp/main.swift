@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 
 enum AppearanceMode: String, CaseIterable {
@@ -949,7 +950,7 @@ final class ShellBridge {
     }
 
     private func executePrivileged(arguments: [String]) throws -> String {
-        let command = ([resolvedCLIPath()] + arguments).map(shellEscape(_:)).joined(separator: " ")
+        let command = privilegedCommand(arguments: arguments)
         let script = #"do shell script "\#(appleScriptEscape(command))" with administrator privileges"#
 
         let task = Process()
@@ -970,6 +971,20 @@ final class ShellBridge {
         }
 
         return stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func privilegedCommand(arguments: [String]) -> String {
+        let stateDirectory = BuoyPaths.defaultStateDirectory().path
+        let cliCommand = ([resolvedCLIPath()] + arguments).map(shellEscape(_:)).joined(separator: " ")
+        let stateDirectoryAssignment = "BUOY_STATE_DIR=\(shellEscape(stateDirectory))"
+        let owner = "\(getuid()):\(getgid())"
+
+        return [
+            "/usr/bin/env \(stateDirectoryAssignment) \(cliCommand)",
+            "status=$?",
+            "if [ -d \(shellEscape(stateDirectory)) ]; then /usr/sbin/chown -R \(shellEscape(owner)) \(shellEscape(stateDirectory)) 2>/dev/null || true; fi",
+            "exit $status"
+        ].joined(separator: "; ")
     }
 
     private func resolvedCLIPath() -> String {
