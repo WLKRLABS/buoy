@@ -10,6 +10,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Fixed
 
+### Removed
+
+
+## [1.1.2] - 2026-05-27
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fixed Buoy.app power actions so privileged Apply/Turn Off writes the normal user state file, preventing Enable Buoy mode from flipping back to off after status refresh.
 
 ### Removed
