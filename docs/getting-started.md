@@ -87,7 +87,7 @@ Launch `Buoy.app` and start with:
 - `Power` to confirm mode, display sleep, and closed-lid settings
 - `Storage` when disk pressure matters
 
-## 6. Restore Normal AC Sleep Behavior
+## 6. Turn Off Buoy And Verify Sleep Behavior
 
 Run:
 
@@ -95,7 +95,7 @@ Run:
 buoy off
 ```
 
-This restores the saved AC settings from the Buoy state file and stops the closed-lid helper if it is active.
+This restores the saved AC settings from the Buoy state file, stops the closed-lid helper if it is active, and verifies the result before clearing the recovery record. If a restored setting or active assertion still prevents sleep, Buoy reports `sleep_prevented` instead of claiming sleep was restored.
 
 ## First Tasks To Try
 

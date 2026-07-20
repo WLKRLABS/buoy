@@ -10,6 +10,8 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Fixed
 
+- Fixed power status reconciliation so the CLI and app report live macOS settings and assertions that prevent sleep instead of claiming Buoy is safely off, preserve recovery state before power changes, reject incomplete restore points, and verify restoration before clearing it.
+
 ### Removed
 
 

@@ -238,6 +238,7 @@ prepare_release() {
 
   run_step bash "$ROOT_DIR/scripts/validate-versioning.sh"
   run_step "$ROOT_DIR/scripts/smoke-test.sh"
+  run_step "$ROOT_DIR/scripts/test-power-state.sh"
   run_step "$ROOT_DIR/scripts/build-cli.sh"
   run_step "$ROOT_DIR/scripts/build-app.sh"
   run_step "$ROOT_DIR/scripts/package-release.sh"

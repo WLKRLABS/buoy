@@ -35,12 +35,13 @@ The CLI owns apply, restore, status, doctor, screen-off, install, and PATH helpe
 5. Core engine applies the managed AC profile.
 6. If closed-lid awake mode is enabled, the helper manages `SleepDisabled`.
 
-### Restore normal AC behavior
+### Restore and verify AC behavior
 
 1. User runs `buoy off` or clicks `Turn Off`.
 2. Core engine reads `~/.buoy/state.json`.
 3. Core engine restores saved AC values.
-4. Closed-lid helper state is cleared when Buoy mode is off.
+4. Core engine verifies saved AC values and `SleepDisabled` against live `pmset` output.
+5. Recovery state is cleared only after verification; live sleep prevention remains visible as `sleep_prevented` even when Buoy ownership is off.
 
 ### App inspection
 

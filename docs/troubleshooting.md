@@ -78,12 +78,13 @@ buoy status
 - run the same action in Terminal to inspect the exact error
 - confirm `pmset` is available with `buoy doctor`
 
-## `buoy off` Says Buoy Mode Is Already Off
+## Status Reports Sleep Prevented Or A Configuration Mismatch
 
 ### Likely Causes
 
-- the Buoy state file is missing
-- mode was changed outside Buoy
+- the Buoy state file is missing while a live macOS setting or assertion still prevents sleep (`sleep_prevented`)
+- a managed AC value drifted after Buoy was applied
+- the closed-lid helper stopped
 
 ### Checks
 
@@ -94,9 +95,10 @@ buoy status
 
 ### Fixes
 
-- if the state file is gone, Buoy no longer has the saved restore point
-- manually inspect current `pmset` values before changing anything else
-- reapply Buoy only if you understand that a new restore point will be captured from the current state
+- inspect `Mode issues`, `System sleep`, `SleepDisabled`, and the managed AC values in `buoy status`
+- if the state file exists, retry `buoy off`; Buoy keeps the recovery record when restoration cannot be verified
+- if the state file is gone, Buoy reports `sleep_prevented` but does not silently change settings it cannot prove it owns
+- repair an orphaned macOS setting explicitly only after confirming the intended value
 
 ## Closed-Lid Monitor Shows Stopped
 

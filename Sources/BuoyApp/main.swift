@@ -352,9 +352,9 @@ final class BuoyViewController: NSViewController {
     private let behaviorTitleLabel = NSTextField(labelWithString: "Checking policy")
     private let behaviorDetailLabel = NSTextField(wrappingLabelWithString: "Buoy is reading the current power state.")
     private let currentBehaviorValueLabel = NSTextField(labelWithString: "Checking...")
-    private let computerBehaviorValueLabel = NSTextField(labelWithString: "Restore normal sleep")
-    private let displayBehaviorValueLabel = NSTextField(labelWithString: "System default")
-    private let lidBehaviorValueLabel = NSTextField(labelWithString: "Normal sleep")
+    private let computerBehaviorValueLabel = NSTextField(labelWithString: "Unverified")
+    private let displayBehaviorValueLabel = NSTextField(labelWithString: "Unverified")
+    private let lidBehaviorValueLabel = NSTextField(labelWithString: "Unverified")
     private let statusLabel = NSTextField(wrappingLabelWithString: "Loading status...")
     private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy remains fully scriptable through the CLI. The readout below matches the installed `buoy` binary.")
 
@@ -600,7 +600,7 @@ final class BuoyViewController: NSViewController {
     }
 
     private func makeActionPanel() -> NSView {
-        let note = NSTextField(wrappingLabelWithString: "Apply commits the current sliders and toggles in one privileged step. Turn Off restores the saved normal AC sleep settings.")
+        let note = NSTextField(wrappingLabelWithString: "Apply commits the current sliders and toggles in one privileged step. Turn Off restores the saved AC power settings and verifies the live result.")
         note.font = .systemFont(ofSize: 12)
         note.textColor = BuoyChrome.secondaryTextColor
         note.maximumNumberOfLines = 0
@@ -687,46 +687,26 @@ final class BuoyViewController: NSViewController {
     }
 
     private func updateBehaviorSummary() {
-        let serverModeEnabled = enabledSwitch.state == .on
-        let closedLidEnabled = serverModeEnabled && clamSwitch.state == .on
-        let displaySleepMinutes = Int(displaySleepSlider.doubleValue)
-        let batteryFloor = Int(batterySlider.doubleValue)
+        let presentation = BuoyPowerPresenter.make(status: currentStatus)
+        behaviorTitleLabel.stringValue = presentation.title
+        behaviorDetailLabel.stringValue = presentation.detail
+        currentBehaviorValueLabel.stringValue = presentation.currentState
+        computerBehaviorValueLabel.stringValue = presentation.computerSleep
+        displayBehaviorValueLabel.stringValue = presentation.displaySleep
+        lidBehaviorValueLabel.stringValue = presentation.closedLid
 
-        let currentPowerSource: String
-        switch currentStatus?.system.powerSource {
-        case "AC Power":
-            currentPowerSource = "on AC"
-        case "Battery Power":
-            currentPowerSource = "on battery"
-        default:
-            currentPowerSource = ""
-        }
-
-        if let sleepDisabled = currentStatus?.system.sleepDisabled {
-            currentBehaviorValueLabel.stringValue = sleepDisabled == 1
-                ? currentPowerSource.isEmpty ? "Awake now" : "Awake now \(currentPowerSource)"
-                : "Sleep allowed now"
-        } else {
-            currentBehaviorValueLabel.stringValue = "Checking..."
-        }
-
-        if serverModeEnabled {
-            behaviorTitleLabel.stringValue = closedLidEnabled ? "Awake on AC and with the lid closed" : "Awake on AC"
-            behaviorDetailLabel.stringValue = closedLidEnabled
-                ? "Buoy prevents computer sleep while plugged in and can also hold the Mac awake with the lid closed while charging or above \(batteryFloor)% battery."
-                : "Buoy prevents computer sleep while plugged in. The display can still sleep after \(displaySleepMinutes) minutes."
-            computerBehaviorValueLabel.stringValue = "Keep awake on AC"
-            displayBehaviorValueLabel.stringValue = "After \(displaySleepMinutes) min"
-            lidBehaviorValueLabel.stringValue = closedLidEnabled ? "Awake above \(batteryFloor)%" : "Normal sleep"
-            behaviorSymbolView.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Awake on AC")
+        switch currentStatus?.mode.state {
+        case .enabled:
+            behaviorSymbolView.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: presentation.title)
             behaviorSymbolView.contentTintColor = BuoyChrome.accentColor
-        } else {
-            behaviorTitleLabel.stringValue = "Normal sleep restored"
-            behaviorDetailLabel.stringValue = "When Buoy mode is off, Buoy stops holding the Mac awake and restores the saved AC power settings."
-            computerBehaviorValueLabel.stringValue = "Restore normal sleep"
-            displayBehaviorValueLabel.stringValue = "System default"
-            lidBehaviorValueLabel.stringValue = "System default"
-            behaviorSymbolView.image = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: "Normal sleep restored")
+        case .sleepPrevented, .configurationMismatch:
+            behaviorSymbolView.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: presentation.title)
+            behaviorSymbolView.contentTintColor = BuoyChrome.warningColor
+        case .disabled:
+            behaviorSymbolView.image = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: presentation.title)
+            behaviorSymbolView.contentTintColor = BuoyChrome.secondaryTextColor
+        case .unverified, nil:
+            behaviorSymbolView.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: presentation.title)
             behaviorSymbolView.contentTintColor = BuoyChrome.secondaryTextColor
         }
 
@@ -734,30 +714,48 @@ final class BuoyViewController: NSViewController {
     }
 
     private func updateSummaryCards() {
-        let enabled = enabledSwitch.state == .on
+        let presentation = BuoyPowerPresenter.make(status: currentStatus)
         let sleepValue = currentStatus?.mode.displaySleepMinutes ?? Int(displaySleepSlider.doubleValue)
         let batteryPercent = currentStatus?.system.batteryPercent
         let powerSource = currentStatus?.system.powerSource ?? "Unknown"
+        let modeTone: DashboardMetricTone
+        switch currentStatus?.mode.state {
+        case .enabled:
+            modeTone = .accent
+        case .sleepPrevented, .configurationMismatch:
+            modeTone = .warning
+        case .disabled, .unverified, nil:
+            modeTone = .neutral
+        }
 
         modeCard.set(
-            value: enabled ? "Enabled" : "Off",
-            detail: enabled ? "Display sleeps after \(sleepValue) min" : "Restores normal AC sleep behavior",
-            tone: enabled ? .accent : .neutral
+            value: presentation.modeValue,
+            detail: currentStatus?.mode.state == .enabled ? "Display sleeps after \(sleepValue) min" : presentation.modeDetail,
+            tone: modeTone
         )
         sourceCard.set(
             value: powerSource,
-            detail: currentStatus?.system.sleepDisabled == 1 ? "Sleep currently prevented" : "Sleep currently allowed",
-            tone: powerSource == "AC Power" ? .accent : .neutral
+            detail: presentation.sourceDetail,
+            tone: currentStatus?.system.sleepAllowed == false ? .warning : (powerSource == "AC Power" ? .accent : .neutral)
         )
         batteryCard.set(
             value: batteryPercent.map { "\($0)%" } ?? "No battery",
-            detail: "Closed-lid floor \(Int(batterySlider.doubleValue))%",
+            detail: currentStatus?.clam.minBattery.map { "Closed-lid floor \($0)%" } ?? "Closed-lid mode off",
             tone: (batteryPercent ?? 100) < 20 ? .warning : .accent
         )
+        let lidDetail: String
+        switch currentStatus?.system.sleepDisabled {
+        case 1:
+            lidDetail = "SleepDisabled is 1"
+        case 0:
+            lidDetail = "SleepDisabled is 0"
+        default:
+            lidDetail = "SleepDisabled unavailable"
+        }
         lidCard.set(
-            value: clamSwitch.state == .on && enabled ? "Awake" : "Normal",
-            detail: clamSwitch.state == .on && enabled ? "Poll every \(Int(pollSlider.doubleValue)) sec" : "Closed lid follows system default",
-            tone: clamSwitch.state == .on && enabled ? .accent : .neutral
+            value: presentation.closedLid,
+            detail: lidDetail,
+            tone: currentStatus?.system.sleepDisabled == 1 ? .warning : .neutral
         )
     }
 
@@ -831,6 +829,7 @@ final class BuoyViewController: NSViewController {
                     self.currentStatus = status
                     self.render(status: status)
                 case .failure(let error):
+                    self.currentStatus = nil
                     self.statusLabel.stringValue = "Status unavailable.\n\(error.localizedDescription)"
                     self.updateBehaviorSummary()
                 }
@@ -854,9 +853,23 @@ final class BuoyViewController: NSViewController {
             lines.append("battery     \(battery)%")
         }
         if let sleepDisabled = status.system.sleepDisabled {
-            lines.append("sleep now   \(sleepDisabled == 1 ? "prevented" : "allowed")")
+            lines.append("sleep override \(sleepDisabled == 1 ? "on" : "off")")
         }
-        lines.append("mode        \(status.mode.enabled ? "enabled" : "disabled")")
+        lines.append("mode        \(status.mode.state.rawValue)")
+        if !status.mode.issues.isEmpty {
+            lines.append("issues      \(status.mode.issues.map(\.rawValue).joined(separator: ", "))")
+        }
+        if let assertions = status.system.sleepPreventingAssertions, !assertions.isEmpty {
+            lines.append("assertions  \(assertions.joined(separator: ", "))")
+        }
+        switch status.system.sleepAllowed {
+        case true:
+            lines.append("system sleep allowed")
+        case false:
+            lines.append("system sleep disabled")
+        case nil:
+            lines.append("system sleep unverified")
+        }
         if let displaySleep = status.mode.displaySleepMinutes {
             lines.append("display     \(displaySleep) min")
         }

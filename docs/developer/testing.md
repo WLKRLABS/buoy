@@ -67,6 +67,21 @@ What these cover:
 - residual system estimate behavior
 - cache round trips and invalidation rules
 
+## Power State Tests
+
+Run:
+
+```bash
+./scripts/test-power-state.sh
+```
+
+What this covers:
+
+- reconciliation of saved Buoy ownership with live macOS power settings
+- explicit sleep-prevented, mismatch, and unverified states instead of inferred sleep restoration
+- restore verification before Buoy clears its recovery state
+- truthful CLI/app presentation when system sleep remains disabled
+
 ## Manual CLI Checks
 
 Useful commands:
@@ -101,6 +116,7 @@ Current CI workflow:
 - runs `doctor` and `status --json`
 - builds the app
 - packages release assets
+- runs power state reconciliation tests
 - runs storage test scripts
 - verifies the packaged release installer and assets
 
@@ -117,6 +133,7 @@ Source:
 ## Recommended Change-Based Testing
 
 - power-behavior changes:
+  - `./scripts/test-power-state.sh`
   - `./dist/buoy status --json`
   - `./dist/buoy apply --dry-run`
   - app `Power` refresh

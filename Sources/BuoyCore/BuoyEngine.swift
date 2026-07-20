@@ -37,6 +37,7 @@ public final class BuoyEngine {
         state.enabledAt = state.enabledAt ?? Self.nowUTC()
         state.config = config
         state.configuredValues = desiredSettings.mapKeys(\.rawValue)
+        try Self.validateRestorePoint(state)
 
         var messages: [String] = []
         if try currentPowerSource() != "AC Power" {
@@ -52,12 +53,19 @@ public final class BuoyEngine {
         }
 
         try sudoValidate()
-        try setACSettings(desiredSettings)
+        if config.clamEnabled, state.clamOriginalSleepDisabled == nil {
+            guard let sleepDisabled = try currentSleepDisabled() else {
+                throw BuoyError.commandFailed("Unable to read SleepDisabled; no power settings were changed.")
+            }
+            state.clamOriginalSleepDisabled = sleepDisabled
+        }
+
+        // Keep the restore point durable before the first power mutation. If a
+        // later command fails, status reports drift and `off` can still recover.
         try stateStore.save(state)
+        try setACSettings(desiredSettings)
 
         if config.clamEnabled {
-            let sleepDisabled = try currentSleepDisabled() ?? 0
-            state.clamOriginalSleepDisabled = state.clamOriginalSleepDisabled ?? sleepDisabled
             state = try enableClamMonitor(config: config, state: state)
         } else {
             state = try disableClamMonitor(state: state, dryRun: false)
@@ -75,28 +83,92 @@ public final class BuoyEngine {
 
     public func disable(dryRun: Bool) throws -> [String] {
         guard var state = try stateStore.load(), state.modeEnabled else {
-            return ["Buoy mode is already off."]
+            let currentStatus = try status()
+            switch currentStatus.mode.state {
+            case .sleepPrevented:
+                return [
+                    "Buoy restore state is already off.",
+                    "Warning: live macOS settings or assertions still prevent system sleep; no saved Buoy restore point is available."
+                ]
+            case .unverified:
+                return [
+                    "Buoy restore state is already off.",
+                    "Warning: the live macOS sleep state could not be verified."
+                ]
+            case .disabled, .enabled, .configurationMismatch:
+                return ["Buoy mode is already off; live macOS settings allow system sleep."]
+            }
         }
+
+        try Self.validateRestorePoint(state)
 
         if dryRun {
             return ["Buoy mode would be disabled and original AC settings restored."]
         }
 
         try sudoValidate()
+        let savedState = state
         state = try disableClamMonitor(state: state, dryRun: false)
         try setACSettings(Self.restoreSettings(from: state))
+        try verifyRestoration(from: savedState)
         try stateStore.clear()
 
-        return [
-            "Buoy mode disabled.",
-            "The previously saved AC power settings have been restored."
-        ]
+        let restoredStatus = try status()
+        switch restoredStatus.mode.state {
+        case .sleepPrevented:
+            return [
+                "Buoy mode disabled.",
+                "The saved power settings were restored, but a live macOS setting or assertion still prevents system sleep."
+            ]
+        case .unverified:
+            return [
+                "Buoy mode disabled.",
+                "The saved power settings were restored, but the live macOS sleep state could not be verified."
+            ]
+        case .disabled:
+            return [
+                "Buoy mode disabled.",
+                "The saved power settings were restored; live macOS settings allow system sleep."
+            ]
+        case .enabled, .configurationMismatch:
+            throw BuoyError.commandFailed("Buoy restore state remained enabled after Turn Off.")
+        }
     }
 
     public func status() throws -> BuoyStatus {
         let state = try stateStore.load()
         let monitorRunning = try state?.clamMonitorPID.flatMap(isMonitorRunning(pid:)) ?? false
         let config = state?.config
+        let powerSource = try currentPowerSource()
+        let batteryPercent = try currentBatteryPercentage()
+        let sleepDisabled = try currentSleepDisabled()
+        let sleepPreventingAssertions = try currentSleepPreventingAssertions()
+        let customSettings = try currentCustomSettings()
+        let managedAC = PMSetParser.parseCustomSettings(customSettings)
+        let activeSettings: [BuoyPowerKey: Int]
+        switch powerSource {
+        case "AC Power":
+            activeSettings = PMSetParser.parseCustomSettings(customSettings, section: "AC Power:")
+        case "Battery Power":
+            activeSettings = PMSetParser.parseCustomSettings(customSettings, section: "Battery Power:")
+        default:
+            activeSettings = [:]
+        }
+        let systemSleepMinutes = activeSettings[.sleep]
+        let sleepAllowed = Self.sleepAllowed(
+            sleepDisabled: sleepDisabled,
+            systemSleepMinutes: systemSleepMinutes,
+            sleepPreventingAssertions: sleepPreventingAssertions
+        )
+        let issues = Self.modeIssues(
+            state: state,
+            monitorRunning: monitorRunning,
+            powerSource: powerSource,
+            batteryPercent: batteryPercent,
+            sleepDisabled: sleepDisabled,
+            sleepAllowed: sleepAllowed,
+            managedAC: managedAC
+        )
 
         return BuoyStatus(
             product: BuoyProductInfo(
@@ -106,6 +178,8 @@ public final class BuoyEngine {
             ),
             mode: BuoyModeStatus(
                 enabled: state?.modeEnabled ?? false,
+                state: Self.modeState(modeEnabled: state?.modeEnabled ?? false, issues: issues),
+                issues: issues,
                 enabledAt: state?.enabledAt,
                 displaySleepMinutes: config?.displaySleepMinutes
             ),
@@ -117,14 +191,17 @@ public final class BuoyEngine {
                 monitorRunning: monitorRunning
             ),
             system: BuoySystemStatus(
-                powerSource: try currentPowerSource(),
-                batteryPercent: try currentBatteryPercentage(),
-                sleepDisabled: try currentSleepDisabled()
+                powerSource: powerSource,
+                batteryPercent: batteryPercent,
+                sleepDisabled: sleepDisabled,
+                systemSleepMinutes: systemSleepMinutes,
+                sleepAllowed: sleepAllowed,
+                sleepPreventingAssertions: sleepPreventingAssertions
             ),
             paths: BuoyPathStatus(
                 stateFile: stateStore.stateFileURL.path
             ),
-            managedAC: try currentACSettings().mapKeys(\.rawValue),
+            managedAC: managedAC.mapKeys(\.rawValue),
             configured: state?.configuredValues ?? [:],
             original: state?.originalValues ?? [:]
         )
@@ -215,7 +292,10 @@ public final class BuoyEngine {
                 exit(0)
             }
 
-            let desired = try desiredSleepDisabled(minBattery: minBattery, originalSleepDisabled: state.clamOriginalSleepDisabled ?? 0)
+            guard let originalSleepDisabled = state.clamOriginalSleepDisabled else {
+                throw BuoyError.commandFailed("Closed-lid monitor has no saved SleepDisabled restore value.")
+            }
+            let desired = try desiredSleepDisabled(minBattery: minBattery, originalSleepDisabled: originalSleepDisabled)
             let current = try currentSleepDisabled()
             if current != desired {
                 _ = try runner.run(executable: "/usr/bin/pmset", arguments: ["disablesleep", "\(desired)"])
@@ -230,8 +310,11 @@ public final class BuoyEngine {
     }
 
     private func currentACSettings() throws -> [BuoyPowerKey: Int] {
-        let output = try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "custom"])
-        return PMSetParser.parseCustomSettings(output.stdout)
+        PMSetParser.parseCustomSettings(try currentCustomSettings())
+    }
+
+    private func currentCustomSettings() throws -> String {
+        try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "custom"]).stdout
     }
 
     private func currentPowerSource() throws -> String {
@@ -247,6 +330,11 @@ public final class BuoyEngine {
     private func currentSleepDisabled() throws -> Int? {
         let output = try runner.run(executable: "/usr/bin/pmset", arguments: ["-g"])
         return PMSetParser.currentSleepDisabled(output.stdout)
+    }
+
+    private func currentSleepPreventingAssertions() throws -> [String]? {
+        let output = try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "assertions"])
+        return PMSetParser.sleepPreventingAssertions(output.stdout)
     }
 
     private func sudoValidate() throws {
@@ -265,9 +353,12 @@ public final class BuoyEngine {
 
     private func enableClamMonitor(config: BuoyConfig, state: PersistedState) throws -> PersistedState {
         var newState = state
+        guard let originalSleepDisabled = newState.clamOriginalSleepDisabled else {
+            throw BuoyError.commandFailed("Closed-lid mode has no saved SleepDisabled restore value.")
+        }
         let desired = try desiredSleepDisabled(
             minBattery: config.clamMinBattery,
-            originalSleepDisabled: newState.clamOriginalSleepDisabled ?? 0
+            originalSleepDisabled: originalSleepDisabled
         )
         _ = try runner.run(executable: "/usr/bin/sudo", arguments: ["pmset", "disablesleep", "\(desired)"], interactive: true)
 
@@ -310,14 +401,12 @@ public final class BuoyEngine {
     }
 
     private func desiredSleepDisabled(minBattery: Int, originalSleepDisabled: Int) throws -> Int {
-        if originalSleepDisabled == 1 {
-            return 1
-        }
-        if try currentPowerSource() == "AC Power" {
-            return 1
-        }
-        let battery = try currentBatteryPercentage() ?? 0
-        return battery > minBattery ? 1 : 0
+        Self.desiredSleepDisabled(
+            powerSource: try currentPowerSource(),
+            batteryPercent: try currentBatteryPercentage(),
+            minBattery: minBattery,
+            originalSleepDisabled: originalSleepDisabled
+        )
     }
 
     private func isMonitorRunning(pid: Int) throws -> Bool {
@@ -337,6 +426,166 @@ public final class BuoyEngine {
             }
         }
         return values
+    }
+
+    private func verifyRestoration(from state: PersistedState) throws {
+        try Self.validateRestorePoint(state)
+        let expectedAC = Self.restoreSettings(from: state)
+        guard !expectedAC.isEmpty else {
+            throw BuoyError.commandFailed(
+                "The saved AC restore point is incomplete. Buoy kept the state file for manual recovery."
+            )
+        }
+
+        let actualAC = try currentACSettings()
+        let mismatchedKeys = expectedAC.compactMap { key, expected -> String? in
+            actualAC[key] == expected ? nil : key.rawValue
+        }.sorted()
+        if !mismatchedKeys.isEmpty {
+            throw BuoyError.commandFailed(
+                "Power restoration could not be verified for: \(mismatchedKeys.joined(separator: ", ")). Buoy kept the restore state so Turn Off can be retried."
+            )
+        }
+
+        if let expectedSleepDisabled = state.clamOriginalSleepDisabled {
+            guard let actualSleepDisabled = try currentSleepDisabled(), actualSleepDisabled == expectedSleepDisabled else {
+                throw BuoyError.commandFailed(
+                    "SleepDisabled restoration could not be verified. Buoy kept the restore state so Turn Off can be retried."
+                )
+            }
+        }
+    }
+
+    private static func sleepAllowed(
+        sleepDisabled: Int?,
+        systemSleepMinutes: Int?,
+        sleepPreventingAssertions: [String]?
+    ) -> Bool? {
+        if sleepDisabled == 1 || systemSleepMinutes == 0 || sleepPreventingAssertions?.isEmpty == false {
+            return false
+        }
+        guard sleepDisabled == 0, let systemSleepMinutes, sleepPreventingAssertions != nil else {
+            return nil
+        }
+        return systemSleepMinutes > 0
+    }
+
+    private static func modeState(modeEnabled: Bool, issues: [BuoyModeIssue]) -> BuoyModeState {
+        if issues.contains(.sleepStillPrevented) {
+            return .sleepPrevented
+        }
+        if issues.isEmpty {
+            return modeEnabled ? .enabled : .disabled
+        }
+        if issues.allSatisfy({ $0 == .sleepStateUnverified }) {
+            return .unverified
+        }
+        return .configurationMismatch
+    }
+
+    private static func modeIssues(
+        state: PersistedState?,
+        monitorRunning: Bool,
+        powerSource: String,
+        batteryPercent: Int?,
+        sleepDisabled: Int?,
+        sleepAllowed: Bool?,
+        managedAC: [BuoyPowerKey: Int]
+    ) -> [BuoyModeIssue] {
+        guard let state, state.modeEnabled else {
+            if sleepAllowed == false || sleepDisabled == 1 || managedAC[.sleep] == 0 {
+                return [.sleepStillPrevented]
+            }
+            if sleepDisabled == nil || managedAC[.sleep] == nil || sleepAllowed == nil {
+                return [.sleepStateUnverified]
+            }
+            return []
+        }
+
+        var issues: [BuoyModeIssue] = []
+        let configuredKeys = Set(state.configuredValues.keys.compactMap(BuoyPowerKey.init(rawValue:)))
+        let originalKeys = Set(state.originalValues.keys.compactMap(BuoyPowerKey.init(rawValue:)))
+        let hasUnknownConfiguredKeys = configuredKeys.count != state.configuredValues.count
+        if state.config == nil || configuredKeys.isEmpty || hasUnknownConfiguredKeys || !configuredKeys.isSubset(of: originalKeys) {
+            issues.append(.restoreStateIncomplete)
+        }
+
+        let configuredValues = state.configuredValues.compactMap { rawKey, value -> (BuoyPowerKey, Int)? in
+            guard let key = BuoyPowerKey(rawValue: rawKey) else { return nil }
+            return (key, value)
+        }
+        if configuredValues.contains(where: { managedAC[$0.0] != $0.1 }) {
+            issues.append(.managedSettingsDrifted)
+        }
+
+        if let config = state.config, config.clamEnabled {
+            if state.clamOriginalSleepDisabled == nil {
+                issues.append(.restoreStateIncomplete)
+            }
+            if !monitorRunning {
+                issues.append(.closedLidMonitorStopped)
+            }
+            if sleepDisabled == nil {
+                issues.append(.sleepStateUnverified)
+            } else if let original = state.clamOriginalSleepDisabled, let sleepDisabled {
+                if powerSource == "Battery Power", batteryPercent == nil {
+                    issues.append(.sleepStateUnverified)
+                } else {
+                    let desired = desiredSleepDisabled(
+                        powerSource: powerSource,
+                        batteryPercent: batteryPercent,
+                        minBattery: config.clamMinBattery,
+                        originalSleepDisabled: original
+                    )
+                    if sleepDisabled != desired {
+                        issues.append(.managedSettingsDrifted)
+                    }
+                }
+            }
+        }
+
+        if sleepAllowed == nil {
+            issues.append(.sleepStateUnverified)
+        }
+
+        return issues.reduce(into: []) { unique, issue in
+            if !unique.contains(issue) {
+                unique.append(issue)
+            }
+        }.sorted { $0.rawValue < $1.rawValue }
+    }
+
+    private static func desiredSleepDisabled(
+        powerSource: String,
+        batteryPercent: Int?,
+        minBattery: Int,
+        originalSleepDisabled: Int
+    ) -> Int {
+        if originalSleepDisabled == 1 || powerSource == "AC Power" {
+            return 1
+        }
+        return (batteryPercent ?? 0) > minBattery ? 1 : 0
+    }
+
+    private static func validateRestorePoint(_ state: PersistedState) throws {
+        let configuredKeys = Set(state.configuredValues.keys.compactMap(BuoyPowerKey.init(rawValue:)))
+        let originalKeys = Set(state.originalValues.keys.compactMap(BuoyPowerKey.init(rawValue:)))
+        let missingKeys = configuredKeys.subtracting(originalKeys).map(\.rawValue).sorted()
+        let hasUnknownConfiguredKeys = configuredKeys.count != state.configuredValues.count
+
+        guard !configuredKeys.isEmpty, !hasUnknownConfiguredKeys, missingKeys.isEmpty else {
+            let detail: String
+            if configuredKeys.isEmpty {
+                detail = "no managed keys were saved"
+            } else if hasUnknownConfiguredKeys {
+                detail = "unknown managed keys were saved"
+            } else {
+                detail = "missing \(missingKeys.joined(separator: ", "))"
+            }
+            throw BuoyError.commandFailed(
+                "The AC restore point is incomplete (\(detail)); no power settings were changed."
+            )
+        }
     }
 
     private static func validate(config: BuoyConfig) throws {

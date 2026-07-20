@@ -69,13 +69,33 @@ public struct BuoyProductInfo: Codable, Equatable {
     public var command: String
 }
 
+public enum BuoyModeState: String, Codable, Equatable {
+    case enabled
+    case disabled
+    case sleepPrevented = "sleep_prevented"
+    case configurationMismatch = "configuration_mismatch"
+    case unverified
+}
+
+public enum BuoyModeIssue: String, Codable, Equatable {
+    case sleepStillPrevented = "sleep_still_prevented"
+    case managedSettingsDrifted = "managed_settings_drifted"
+    case closedLidMonitorStopped = "closed_lid_monitor_stopped"
+    case sleepStateUnverified = "sleep_state_unverified"
+    case restoreStateIncomplete = "restore_state_incomplete"
+}
+
 public struct BuoyModeStatus: Codable, Equatable {
     public var enabled: Bool
+    public var state: BuoyModeState
+    public var issues: [BuoyModeIssue]
     public var enabledAt: String?
     public var displaySleepMinutes: Int?
 
     enum CodingKeys: String, CodingKey {
         case enabled
+        case state
+        case issues
         case enabledAt = "enabled_at"
         case displaySleepMinutes = "display_sleep_minutes"
     }
@@ -101,11 +121,17 @@ public struct BuoySystemStatus: Codable, Equatable {
     public var powerSource: String
     public var batteryPercent: Int?
     public var sleepDisabled: Int?
+    public var systemSleepMinutes: Int?
+    public var sleepAllowed: Bool?
+    public var sleepPreventingAssertions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case powerSource = "power_source"
         case batteryPercent = "battery_percent"
         case sleepDisabled = "sleep_disabled"
+        case systemSleepMinutes = "system_sleep_minutes"
+        case sleepAllowed = "sleep_allowed"
+        case sleepPreventingAssertions = "sleep_preventing_assertions"
     }
 }
 

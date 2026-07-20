@@ -47,5 +47,8 @@ jobs:
           ./scripts/test-storage-cache.sh
           ./scripts/test-storage-layout.sh
 
+      - name: Run power state tests
+        run: ./scripts/test-power-state.sh
+
       - name: Verify packaged release
         run: ./scripts/verify-release.sh

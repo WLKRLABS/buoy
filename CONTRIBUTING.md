@@ -19,6 +19,7 @@ bash scripts/validate-versioning.sh
 ./scripts/smoke-test.sh
 ./scripts/build-cli.sh
 ./scripts/build-app.sh
+./scripts/test-power-state.sh
 ./scripts/test-storage-scanner.sh
 ./scripts/test-storage-cache.sh
 ./scripts/test-storage-layout.sh

@@ -212,7 +212,7 @@
       ]
     },
     {
-      "name": "Restore normal AC sleep behavior",
+      "name": "Turn off Buoy and verify sleep behavior",
       "entry_points": [
         "buoy off",
         "Power -> Turn Off"

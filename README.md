@@ -60,7 +60,9 @@ Default install locations:
 | `ttyskeepawake` | `1` |
 | `tcpkeepalive` | `1` |
 
-`buoy off` restores the saved AC values from the state file and clears closed-lid helper state when Buoy mode is off.
+`buoy off` restores the saved AC values from the state file, clears closed-lid helper state, and verifies the live result before deleting its recovery record.
+
+`buoy status` reports Buoy ownership separately from live macOS behavior. If Buoy's restore state is off but `SleepDisabled=1`, an active power profile sets system sleep to `0`, or a live sleep assertion is active, status reports `sleep_prevented` instead of claiming normal sleep was restored. `configuration_mismatch` is reserved for saved Buoy policy that disagrees with live settings. An unreadable live state reports `unverified`, never inferred as sleep allowed.
 
 Buoy does not replace `pmset`. It adds a reversible layer on top of the macOS power tools that already exist on the machine.
 
@@ -86,6 +88,8 @@ Closed-lid awake mode is optional. When enabled with `--clam`, Buoy manages `Sle
 - `SleepDisabled=1` on AC power.
 - `SleepDisabled=1` on battery above the configured floor.
 - `SleepDisabled=0` at or below the floor unless it was already enabled before Buoy.
+
+If a previously enabled `SleepDisabled=1` is restored, Buoy reports that system sleep remains disabled even though Buoy ownership is off.
 
 Example:
 

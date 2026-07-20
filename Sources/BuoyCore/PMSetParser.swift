@@ -81,6 +81,50 @@ public enum PMSetParser {
         return nil
     }
 
+    public static func sleepPreventingAssertions(_ output: String) -> [String]? {
+        let relevant = Set(["PreventSystemSleep", "PreventUserIdleSystemSleep"])
+        var assertions: [String] = []
+        var capture = false
+        var parsedRelevant = Set<String>()
+
+        for line in output.split(separator: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "Assertion status system-wide:" {
+                capture = true
+                continue
+            }
+            if trimmed.hasPrefix("Listed by owning process:") {
+                break
+            }
+            guard capture else { continue }
+
+            let components = trimmed.split(whereSeparator: \.isWhitespace)
+            guard
+                let namePart = components.first,
+                let valuePart = components.last,
+                relevant.contains(String(namePart)),
+                let value = Int(valuePart)
+            else {
+                continue
+            }
+            parsedRelevant.insert(String(namePart))
+            if value == 1 {
+                assertions.append(String(namePart))
+            }
+        }
+
+        guard parsedRelevant == relevant else { return nil }
+
+        if output.split(separator: "\n").contains(where: { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.hasPrefix("Kernel Assertions:") && trimmed.contains("PREVENTSLEEP")
+        }) {
+            assertions.append("KernelPreventSleep")
+        }
+
+        return Array(Set(assertions)).sorted()
+    }
+
     public static func desiredValues(
         supported: Set<BuoyPowerKey>,
         config: BuoyConfig

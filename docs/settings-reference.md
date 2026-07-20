@@ -163,11 +163,12 @@ Notes:
 
 Purpose:
 
-- restores the saved AC settings and stops the closed-lid helper
+- restores the saved AC settings, stops the closed-lid helper, and verifies the live result before clearing recovery state
 
 Notes:
 
 - uses the macOS administrator prompt
+- reports `sleep_prevented` if a restored setting or live assertion still prevents system sleep
 
 ### Sleep Display
 

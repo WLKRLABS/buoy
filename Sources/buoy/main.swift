@@ -158,7 +158,22 @@ struct CLI {
     }
 
     private static func printHumanStatus(_ status: BuoyStatus) throws {
-        print("Mode: \(status.mode.enabled ? "enabled" : "disabled")")
+        switch status.mode.state {
+        case .enabled:
+            print("Mode: enabled")
+        case .disabled:
+            print("Mode: disabled (live system sleep allowed)")
+        case .sleepPrevented:
+            print("Mode: sleep prevented (Buoy restore state off)")
+        case .configurationMismatch:
+            let ownership = status.mode.enabled ? "enabled" : "off"
+            print("Mode: configuration mismatch (Buoy restore state \(ownership))")
+        case .unverified:
+            print("Mode: unverified")
+        }
+        if !status.mode.issues.isEmpty {
+            print("Mode issues: \(status.mode.issues.map(\.rawValue).joined(separator: ", "))")
+        }
         if let enabledAt = status.mode.enabledAt {
             print("Enabled at: \(enabledAt)")
         }
@@ -182,6 +197,20 @@ struct CLI {
         }
         if let sleepDisabled = status.system.sleepDisabled {
             print("SleepDisabled: \(sleepDisabled)")
+        }
+        switch status.system.sleepAllowed {
+        case true:
+            print("System sleep: allowed by live settings")
+        case false:
+            print("System sleep: disabled by live settings")
+        case nil:
+            print("System sleep: unverified")
+        }
+        if let minutes = status.system.systemSleepMinutes {
+            print("Active system sleep timer: \(minutes == 0 ? "Never" : "\(minutes) minute(s)")")
+        }
+        if let assertions = status.system.sleepPreventingAssertions, !assertions.isEmpty {
+            print("Sleep-preventing assertions: \(assertions.joined(separator: ", "))")
         }
         print("Current managed AC settings:")
         for key in BuoyPowerKey.allCases {

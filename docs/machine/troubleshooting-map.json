@@ -51,20 +51,22 @@
       "escalation_path": "Capture the CLI error message and confirm whether the failure occurs in both the app and Terminal."
     },
     {
-      "symptom": "buoy off says Buoy mode is already off",
+      "symptom": "Buoy reports sleep prevented or a power configuration mismatch",
       "likely_causes": [
-        "The Buoy state file is missing",
-        "The machine state drifted outside Buoy"
+        "The Buoy state file is missing while macOS settings or assertions still prevent sleep",
+        "A managed AC value drifted outside Buoy",
+        "The closed-lid helper stopped"
       ],
       "checks": [
         "ls ~/.buoy/state.json",
-        "Run buoy status"
+        "Run buoy status and inspect Mode issues, System sleep, SleepDisabled, and managed AC values"
       ],
       "fixes": [
-        "Do not assume Buoy can restore settings without the state file",
-        "Inspect current pmset values before making new changes"
+        "Retry buoy off when the restore state exists",
+        "Do not assume Buoy owns a live setting when the state file is missing",
+        "Repair an orphaned macOS setting explicitly after confirming the intended value"
       ],
-      "escalation_path": "Treat missing restore state as a manual recovery situation."
+      "escalation_path": "Treat a missing restore point as manual recovery; Buoy will report sleep_prevented without silently changing ambiguous settings."
     },
     {
       "symptom": "Closed-lid monitor is stopped",

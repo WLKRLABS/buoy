@@ -83,11 +83,11 @@ Or in the app:
 - this mode uses a helper process
 - if that helper stops, reapply the mode
 
-## Restore Normal AC Sleep Behavior
+## Turn Off Buoy And Verify Sleep Behavior
 
 ### Goal
 
-Undo Buoy-managed power changes cleanly.
+Undo Buoy-managed power changes and verify the live result.
 
 ### Steps
 
@@ -102,7 +102,7 @@ Or in the app:
 
 ### Important
 
-This depends on the restore point still being present in `~/.buoy/state.json`.
+This depends on the restore point still being present in `~/.buoy/state.json`. Buoy keeps that record if restoration cannot be verified. If no restore point exists while macOS settings or assertions still prevent sleep, Buoy reports `sleep_prevented` without changing settings it cannot prove it owns.
 
 ## Check The Current State From A Script
 
