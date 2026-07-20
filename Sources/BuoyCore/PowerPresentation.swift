@@ -42,15 +42,15 @@ public enum BuoyPowerPresenter {
         let computerSleep: String
         let sourceDetail: String
         switch status.system.sleepAllowed {
-        case false:
+        case .some(false):
             currentState = "Prevented now\(sourceSuffix)"
             computerSleep = "Prevented"
             sourceDetail = "System sleep currently prevented"
-        case true:
+        case .some(true):
             currentState = "Allowed now\(sourceSuffix)"
             computerSleep = "Allowed"
             sourceDetail = "System sleep currently allowed"
-        case nil:
+        case .none:
             currentState = "Unverified"
             computerSleep = "Unverified"
             sourceDetail = "Sleep state unverified"

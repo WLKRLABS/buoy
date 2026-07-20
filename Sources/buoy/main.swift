@@ -199,11 +199,11 @@ struct CLI {
             print("SleepDisabled: \(sleepDisabled)")
         }
         switch status.system.sleepAllowed {
-        case true:
+        case .some(true):
             print("System sleep: allowed by live settings")
-        case false:
+        case .some(false):
             print("System sleep: disabled by live settings")
-        case nil:
+        case .none:
             print("System sleep: unverified")
         }
         if let minutes = status.system.systemSleepMinutes {

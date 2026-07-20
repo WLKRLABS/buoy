@@ -863,11 +863,11 @@ final class BuoyViewController: NSViewController {
             lines.append("assertions  \(assertions.joined(separator: ", "))")
         }
         switch status.system.sleepAllowed {
-        case true:
+        case .some(true):
             lines.append("system sleep allowed")
-        case false:
+        case .some(false):
             lines.append("system sleep disabled")
-        case nil:
+        case .none:
             lines.append("system sleep unverified")
         }
         if let displaySleep = status.mode.displaySleepMinutes {
