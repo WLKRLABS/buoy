@@ -11,6 +11,7 @@ struct PowerStateTests {
         try testUnreadableAssertionsDoNotChangeModeOrPolicy()
         try testFailedAssertionCommandDoesNotHideModeOrPolicy()
         try testPartialAssertionStateNeverReportsAllowed()
+        try testBatteryPresenceParsing()
         try testUnknownSleepStateIsNeverReportedAllowed()
         try testOffWithLiveSleepAllowedIsVerified()
         try testEnabledMatchingSettingsIsConsistent()
@@ -20,9 +21,13 @@ struct PowerStateTests {
         try testEnabledDriftReportsMismatch()
         try testUnknownConfiguredKeyReportsIncompleteRestoreState()
         try testStoppedClamMonitorReportsMismatch()
+        try testLegacyClosedLidBaselineIsFlaggedAndNormalized()
         try testOffWithAssertionOnlyDoesNotMutate()
         try testOffWithoutRestorePointRepairsPersistentBlockers()
+        try testOffDoesNotSucceedWhenPolicyRemainsUnverified()
         try testOffFailsWhenACProfileCannotBeVerified()
+        try testOffFailsWhenInternalBatteryProfileIsMissing()
+        try testDesktopWithoutBatteryProfileIsVerified()
         try testNoStateRepairFailuresStayTruthfulAndRetry()
         try testFailedRestoreVerificationKeepsState()
         try testOffNormalizesSavedSleepDisabled()
@@ -136,6 +141,12 @@ struct PowerStateTests {
         expect(parsed == nil, "Partial assertion output must remain unverified.")
     }
 
+    private static func testBatteryPresenceParsing() throws {
+        expect(PMSetParser.hasInternalBattery("Now drawing from 'AC Power'\n -InternalBattery-0\t80%; charged") == true, "Expected an internal battery row to be detected.")
+        expect(PMSetParser.hasInternalBattery("Now drawing from 'AC Power'\n") == false, "Expected a known desktop power source without a battery row to report no internal battery.")
+        expect(PMSetParser.hasInternalBattery("unavailable") == nil, "Malformed battery status must remain unverified.")
+    }
+
     private static func testUnknownSleepStateIsNeverReportedAllowed() throws {
         let harness = try Harness()
         harness.runner.sleepDisabled = nil
@@ -149,6 +160,7 @@ struct PowerStateTests {
         let presentation = BuoyPowerPresenter.make(status: status)
         expect(presentation.modeValue == "Off", "Unverified policy must not replace the Off mode label.")
         expect(presentation.currentState.localizedCaseInsensitiveContains("unverified"), "Expected explicit unverified policy text.")
+        expect(presentation.modeDetail.localizedCaseInsensitiveContains("unverified"), "Off mode detail must keep unverified policy visible.")
     }
 
     private static func testOffWithLiveSleepAllowedIsVerified() throws {
@@ -253,6 +265,28 @@ struct PowerStateTests {
         expect(status.mode.issues.contains(.closedLidMonitorStopped), "Expected closed_lid_monitor_stopped issue.")
     }
 
+    private static func testLegacyClosedLidBaselineIsFlaggedAndNormalized() throws {
+        let harness = try Harness()
+        harness.runner.powerSource = "Battery Power"
+        harness.runner.batteryPercent = 10
+        harness.runner.acSettings = managedSettings(displaySleep: 10)
+        harness.runner.sleepDisabled = 1
+        harness.runner.monitorRunning = true
+        var state = enabledState(configured: harness.runner.acSettings)
+        state.config = BuoyConfig(displaySleepMinutes: 10, clamEnabled: true, clamMinBattery: 25, clamPollSeconds: 20)
+        state.clamOriginalSleepDisabled = 1
+        state.clamMonitorPID = 123
+        try harness.store.save(state)
+
+        let legacyStatus = try harness.engine.status()
+        expect(legacyStatus.mode.issues.contains(.restoreStateIncomplete), "Legacy SleepDisabled=1 baseline must be flagged for migration.")
+        expect(legacyStatus.mode.issues.contains(.managedSettingsDrifted), "Legacy state above the safe low-battery policy must not report healthy.")
+
+        _ = try harness.engine.apply(config: state.config!, dryRun: false)
+        expect(harness.runner.sleepDisabled == 0, "Reapply below the battery floor must clear a legacy SleepDisabled=1 baseline.")
+        expect(try harness.store.load()?.clamOriginalSleepDisabled == 0, "Reapply must persist the safe zero baseline.")
+    }
+
     private static func testOffWithAssertionOnlyDoesNotMutate() throws {
         let harness = try Harness()
         harness.runner.sleepDisabled = 0
@@ -285,6 +319,17 @@ struct PowerStateTests {
         expect(status.system.sleepAllowed == true, "Repair must finish with a sleep-enabled policy.")
     }
 
+    private static func testOffDoesNotSucceedWhenPolicyRemainsUnverified() throws {
+        let harness = try Harness()
+        harness.runner.sleepDisabled = nil
+        harness.runner.applySudoMutations = false
+
+        let message = expectError { try harness.engine.disable(dryRun: false) }
+        expect(message.localizedCaseInsensitiveContains("SleepDisabled"), "Unverified Off must attempt repair and fail verification instead of returning success.")
+        expect(!harness.runner.sudoCalls.isEmpty, "Unverified Off must use the repair path before it can succeed.")
+        expect(try harness.engine.status().mode.issues.contains(.sleepStateUnverified), "Failed verification must remain visible.")
+    }
+
     private static func testOffFailsWhenACProfileCannotBeVerified() throws {
         let harness = try Harness()
         harness.runner.includeACProfile = false
@@ -296,6 +341,31 @@ struct PowerStateTests {
         let status = try harness.engine.status()
         expect(status.mode.state == .disabled, "Buoy ownership remains Off even when policy verification fails.")
         expect(!status.mode.issues.isEmpty, "Missing AC policy must remain visible after the failed repair.")
+    }
+
+    private static func testOffFailsWhenInternalBatteryProfileIsMissing() throws {
+        let harness = try Harness()
+        harness.runner.includeBatteryProfile = false
+
+        let status = try harness.engine.status()
+        expect(status.mode.issues.contains(.sleepStateUnverified), "An internal battery without a battery profile must be unverified.")
+        let presentation = BuoyPowerPresenter.make(status: status)
+        expect(presentation.detail.localizedCaseInsensitiveContains("unverified"), "Missing inactive profile must not be presented as healthy.")
+        expect(presentation.sourceDetail.localizedCaseInsensitiveContains("unverified"), "Source card must not call an incomplete policy enabled.")
+        let message = expectError { try harness.engine.disable(dryRun: false) }
+        expect(message.localizedCaseInsensitiveContains("battery power profile"), "Off must not claim AC and battery verification when the internal-battery profile is missing.")
+    }
+
+    private static func testDesktopWithoutBatteryProfileIsVerified() throws {
+        let harness = try Harness()
+        harness.runner.batteryPresent = false
+        harness.runner.includeBatteryProfile = false
+
+        let status = try harness.engine.status()
+        expect(status.mode.issues.isEmpty, "A desktop Mac does not require a battery power profile.")
+        let lines = try harness.engine.disable(dryRun: false)
+        expect(lines.joined(separator: " ").localizedCaseInsensitiveContains("already off"), "Healthy desktop Off should verify without repair.")
+        expect(harness.runner.sudoCalls.isEmpty, "Healthy desktop Off must not prompt for unnecessary repair.")
     }
 
     private static func testNoStateRepairFailuresStayTruthfulAndRetry() throws {
@@ -562,6 +632,8 @@ private final class FakeCommandRunner: CommandRunning {
     var assertionsReadable = true
     var failAssertionsCommand = false
     var includeACProfile = true
+    var includeBatteryProfile = true
+    var batteryPresent = true
     var failNextSleepDisabledWrite = false
     var failNextACWrite = false
     var failNextBatteryWrite = false
@@ -583,7 +655,10 @@ private final class FakeCommandRunner: CommandRunning {
             return output(customSettingsOutput())
         }
         if executable == "/usr/bin/pmset", arguments == ["-g", "batt"] {
-            return output("Now drawing from '\(powerSource)'\n -InternalBattery-0\t\(batteryPercent)%; charging; present: true\n")
+            let batteryLine = batteryPresent
+                ? " -InternalBattery-0\t\(batteryPercent)%; charging; present: true\n"
+                : ""
+            return output("Now drawing from '\(powerSource)'\n\(batteryLine)")
         }
         if executable == "/usr/bin/pmset", arguments == ["-g"] {
             let line = sleepDisabled.map { " SleepDisabled\t\t\($0)\n" } ?? ""
@@ -667,9 +742,14 @@ private final class FakeCommandRunner: CommandRunning {
     }
 
     private func customSettingsOutput() -> String {
-        let battery = "Battery Power:\n\(settingsLines(batterySettings))\n"
-        guard includeACProfile else { return battery }
-        return "\(battery)AC Power:\n\(settingsLines(acSettings))\n"
+        var sections: [String] = []
+        if includeBatteryProfile {
+            sections.append("Battery Power:\n\(settingsLines(batterySettings))")
+        }
+        if includeACProfile {
+            sections.append("AC Power:\n\(settingsLines(acSettings))")
+        }
+        return sections.joined(separator: "\n") + "\n"
     }
 
     private func settingsLines(_ settings: [BuoyPowerKey: Int]) -> String {

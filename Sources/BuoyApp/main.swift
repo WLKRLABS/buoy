@@ -649,6 +649,7 @@ final class BuoyViewController: NSViewController {
         applyButton.isEnabled = !isBusy && enabledSwitch.state == .on
         let needsOffAction = currentStatus?.mode.enabled == true
             || currentStatus?.mode.issues.contains(.sleepStillPrevented) == true
+            || currentStatus?.mode.issues.contains(.sleepStateUnverified) == true
         turnOffButton.isEnabled = !isBusy && needsOffAction
         turnOffButton.isHidden = currentStatus != nil && !needsOffAction
     }
@@ -723,6 +724,7 @@ final class BuoyViewController: NSViewController {
             behaviorSymbolView.contentTintColor = BuoyChrome.warningColor
         case .disabled:
             let needsRepair = currentStatus?.mode.issues.contains(.sleepStillPrevented) == true
+                || currentStatus?.mode.issues.contains(.sleepStateUnverified) == true
             behaviorSymbolView.image = NSImage(
                 systemSymbolName: needsRepair ? "exclamationmark.triangle.fill" : "moon.zzz.fill",
                 accessibilityDescription: presentation.title
@@ -748,7 +750,7 @@ final class BuoyViewController: NSViewController {
         case .sleepPrevented, .configurationMismatch:
             modeTone = .warning
         case .disabled:
-            modeTone = currentStatus?.mode.issues.contains(.sleepStillPrevented) == true ? .warning : .neutral
+            modeTone = currentStatus?.mode.issues.isEmpty == false ? .warning : .neutral
         case .unverified, nil:
             modeTone = .neutral
         }
@@ -763,7 +765,8 @@ final class BuoyViewController: NSViewController {
         sourceCard.set(
             value: powerSource,
             detail: presentation.sourceDetail,
-            tone: currentStatus?.system.sleepAllowed == false && currentStatus?.mode.enabled != true
+            tone: currentStatus?.mode.issues.contains(.sleepStillPrevented) == true
+                || currentStatus?.mode.issues.contains(.sleepStateUnverified) == true
                 ? .warning
                 : (powerSource == "AC Power" ? .accent : .neutral)
         )
@@ -883,7 +886,8 @@ final class BuoyViewController: NSViewController {
         updateBehaviorSummary()
         if status.mode.enabled {
             turnOffButton.title = "Turn Off"
-        } else if status.mode.issues.contains(.sleepStillPrevented) {
+        } else if status.mode.issues.contains(.sleepStillPrevented)
+            || status.mode.issues.contains(.sleepStateUnverified) {
             turnOffButton.title = "Repair Sleep"
         } else {
             turnOffButton.title = "Turn Off"
@@ -905,12 +909,15 @@ final class BuoyViewController: NSViewController {
         if let assertions = status.system.sleepPreventingAssertions, !assertions.isEmpty {
             lines.append("temporary requests  \(assertions.joined(separator: ", "))")
         }
-        switch status.system.sleepAllowed {
-        case .some(true):
-            lines.append("sleep policy enabled")
-        case .some(false):
+        if status.mode.issues.contains(.sleepStillPrevented) {
             lines.append("sleep policy needs repair")
-        case .none:
+        } else if status.mode.issues.contains(.sleepStateUnverified) {
+            lines.append("sleep policy unverified")
+        } else if status.system.sleepAllowed == true {
+            lines.append("sleep policy enabled")
+        } else if status.system.sleepAllowed == false {
+            lines.append("sleep policy needs repair")
+        } else {
             lines.append("sleep policy unverified")
         }
         if let displaySleep = status.mode.displaySleepMinutes {

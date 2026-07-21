@@ -80,9 +80,11 @@ What this covers:
 - immediate On or Off ownership independent of persistent policy health
 - separation of persistent sleep policy from temporary macOS assertions
 - Off repair of `SleepDisabled` and system `sleep=Never` on AC and battery
+- failed verification when an internal battery profile is missing or policy data remains unreadable
 - exact preservation of the independent display-sleep preference, including `displaysleep=0`
 - restore verification before Buoy clears its recovery state
 - assertion-only activity remaining informational, including successful Off and lid-close behavior
+- migration of legacy closed-lid state to the safe `SleepDisabled=0` Off baseline
 
 ## Manual CLI Checks
 

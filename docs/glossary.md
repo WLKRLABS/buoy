@@ -10,7 +10,7 @@ This glossary defines the preferred language for active Buoy docs. Use these ter
 - Use `buoy` for the CLI binary.
 - Use `Buoy.app` for the native macOS app.
 - Use `Buoy mode`, not `server mode`, for the managed keep-awake profile.
-- Use exact UI labels when naming controls, for example `Enable Buoy mode`, `Apply Settings`, `Turn Off`, `Sleep Display`, `Refresh Summary`, and `Deep Scan`.
+- Use exact UI labels when naming controls, for example `Enable Buoy mode`, `Apply Settings`, `Turn Off`, `Repair Sleep`, `Sleep Display`, `Refresh Summary`, and `Deep Scan`.
 - Use `closed-lid awake mode` for the optional `SleepDisabled` behavior.
 - Use `restore point` for the saved original AC settings.
 - Use `state file` for `~/.buoy/state.json`.

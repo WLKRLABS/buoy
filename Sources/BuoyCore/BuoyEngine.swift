@@ -58,7 +58,7 @@ public final class BuoyEngine {
         }
 
         try sudoValidate()
-        if config.clamEnabled, state.clamOriginalSleepDisabled == nil {
+        if config.clamEnabled {
             guard try currentSleepDisabled() != nil else {
                 throw BuoyError.commandFailed("Unable to read SleepDisabled; no power settings were changed.")
             }
@@ -95,15 +95,8 @@ public final class BuoyEngine {
             if !needsRepair, !policyUnverified, currentStatus.system.sleepAllowed == true {
                 return Self.offMessages(status: currentStatus, changed: false)
             }
-            if policyUnverified, !needsRepair {
-                return [
-                    "Buoy mode is off.",
-                    "Warning: the persistent macOS sleep policy could not be verified."
-                ]
-            }
-
             if dryRun {
-                return ["Buoy mode is off; persistent sleep blockers would be repaired and verified."]
+                return ["Buoy mode is off; the persistent sleep policy would be repaired where needed and verified."]
             }
 
             try sudoValidate()
@@ -151,8 +144,10 @@ public final class BuoyEngine {
         let state = try stateStore.load()
         let monitorRunning = try state?.clamMonitorPID.flatMap(isMonitorRunning(pid:)) ?? false
         let config = state?.config
-        let powerSource = try currentPowerSource()
-        let batteryPercent = try currentBatteryPercentage()
+        let batteryStatus = try currentBatteryStatus()
+        let powerSource = PMSetParser.currentPowerSource(batteryStatus)
+        let batteryPercent = PMSetParser.currentBatteryPercentage(batteryStatus)
+        let hasInternalBattery = PMSetParser.hasInternalBattery(batteryStatus)
         let sleepDisabled = try currentSleepDisabled()
         let sleepPreventingAssertions: [String]?
         do {
@@ -183,6 +178,7 @@ public final class BuoyEngine {
             monitorRunning: monitorRunning,
             powerSource: powerSource,
             batteryPercent: batteryPercent,
+            hasInternalBattery: hasInternalBattery,
             sleepDisabled: sleepDisabled,
             sleepAllowed: sleepAllowed,
             managedAC: managedAC,
@@ -312,10 +308,7 @@ public final class BuoyEngine {
                 exit(0)
             }
 
-            guard let originalSleepDisabled = state.clamOriginalSleepDisabled else {
-                throw BuoyError.commandFailed("Closed-lid monitor has no saved SleepDisabled restore value.")
-            }
-            let desired = try desiredSleepDisabled(minBattery: minBattery, originalSleepDisabled: originalSleepDisabled)
+            let desired = try desiredSleepDisabled(minBattery: minBattery)
             let current = try currentSleepDisabled()
             if current != desired {
                 _ = try runner.run(executable: "/usr/bin/pmset", arguments: ["disablesleep", "\(desired)"])
@@ -338,13 +331,15 @@ public final class BuoyEngine {
     }
 
     private func currentPowerSource() throws -> String {
-        let output = try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "batt"])
-        return PMSetParser.currentPowerSource(output.stdout)
+        PMSetParser.currentPowerSource(try currentBatteryStatus())
     }
 
-    private func currentBatteryPercentage() throws -> Int? {
-        let output = try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "batt"])
-        return PMSetParser.currentBatteryPercentage(output.stdout)
+    private func currentBatteryStatus() throws -> String {
+        try runner.run(executable: "/usr/bin/pmset", arguments: ["-g", "batt"]).stdout
+    }
+
+    private func currentHasInternalBattery() throws -> Bool? {
+        PMSetParser.hasInternalBattery(try currentBatteryStatus())
     }
 
     private func currentSleepDisabled() throws -> Int? {
@@ -386,13 +381,10 @@ public final class BuoyEngine {
 
     private func enableClamMonitor(config: BuoyConfig, state: PersistedState) throws -> PersistedState {
         var newState = state
-        guard let originalSleepDisabled = newState.clamOriginalSleepDisabled else {
-            throw BuoyError.commandFailed("Closed-lid mode has no saved SleepDisabled restore value.")
+        guard newState.clamOriginalSleepDisabled == 0 else {
+            throw BuoyError.commandFailed("Closed-lid mode has no safe SleepDisabled Off baseline.")
         }
-        let desired = try desiredSleepDisabled(
-            minBattery: config.clamMinBattery,
-            originalSleepDisabled: originalSleepDisabled
-        )
+        let desired = try desiredSleepDisabled(minBattery: config.clamMinBattery)
         _ = try runner.run(executable: "/usr/bin/sudo", arguments: ["pmset", "disablesleep", "\(desired)"], interactive: true)
 
         if let existingPID = newState.clamMonitorPID, try isMonitorRunning(pid: existingPID) {
@@ -433,12 +425,12 @@ public final class BuoyEngine {
         return newState
     }
 
-    private func desiredSleepDisabled(minBattery: Int, originalSleepDisabled: Int) throws -> Int {
-        Self.desiredSleepDisabled(
-            powerSource: try currentPowerSource(),
-            batteryPercent: try currentBatteryPercentage(),
-            minBattery: minBattery,
-            originalSleepDisabled: originalSleepDisabled
+    private func desiredSleepDisabled(minBattery: Int) throws -> Int {
+        let batteryStatus = try currentBatteryStatus()
+        return Self.desiredSleepDisabled(
+            powerSource: PMSetParser.currentPowerSource(batteryStatus),
+            batteryPercent: PMSetParser.currentBatteryPercentage(batteryStatus),
+            minBattery: minBattery
         )
     }
 
@@ -501,8 +493,13 @@ public final class BuoyEngine {
         }
 
         let battery = PMSetParser.parseCustomSettings(customSettings, section: "Battery Power:")
-        if !battery.isEmpty, (battery[.sleep] ?? 0) <= 0 {
-            throw BuoyError.commandFailed("The battery power profile still has system sleep set to Never.")
+        guard let hasInternalBattery = try currentHasInternalBattery() else {
+            throw BuoyError.commandFailed("Internal battery presence could not be verified.")
+        }
+        if hasInternalBattery {
+            guard !battery.isEmpty, (battery[.sleep] ?? 0) > 0 else {
+                throw BuoyError.commandFailed("The battery power profile could not be verified with a finite system sleep timer.")
+            }
         }
     }
 
@@ -558,6 +555,7 @@ public final class BuoyEngine {
         monitorRunning: Bool,
         powerSource: String,
         batteryPercent: Int?,
+        hasInternalBattery: Bool?,
         sleepDisabled: Int?,
         sleepAllowed: Bool?,
         managedAC: [BuoyPowerKey: Int],
@@ -565,13 +563,15 @@ public final class BuoyEngine {
     ) -> [BuoyModeIssue] {
         guard let state, state.modeEnabled else {
             if sleepAllowed == false || sleepDisabled == 1
-                || managedAC[.sleep] == 0 || managedBattery[.sleep] == 0 {
+                || managedAC[.sleep] == 0
+                || (hasInternalBattery != false && managedBattery[.sleep] == 0) {
                 return [.sleepStillPrevented]
             }
-            let batteryIncomplete = !managedBattery.isEmpty
+            let batteryIncomplete = hasInternalBattery != false
                 && managedBattery[.sleep] == nil
             if sleepDisabled == nil
                 || managedAC[.sleep] == nil
+                || hasInternalBattery == nil
                 || batteryIncomplete || sleepAllowed == nil {
                 return [.sleepStateUnverified]
             }
@@ -596,7 +596,7 @@ public final class BuoyEngine {
 
         if let config = state.config {
             if config.clamEnabled {
-                if state.clamOriginalSleepDisabled == nil {
+                if state.clamOriginalSleepDisabled != 0 {
                     issues.append(.restoreStateIncomplete)
                 }
                 if !monitorRunning {
@@ -604,15 +604,14 @@ public final class BuoyEngine {
                 }
                 if sleepDisabled == nil {
                     issues.append(.sleepStateUnverified)
-                } else if let original = state.clamOriginalSleepDisabled, let sleepDisabled {
+                } else if let sleepDisabled {
                     if powerSource == "Battery Power", batteryPercent == nil {
                         issues.append(.sleepStateUnverified)
                     } else {
                         let desired = desiredSleepDisabled(
                             powerSource: powerSource,
                             batteryPercent: batteryPercent,
-                            minBattery: config.clamMinBattery,
-                            originalSleepDisabled: original
+                            minBattery: config.clamMinBattery
                         )
                         if sleepDisabled != desired {
                             issues.append(.managedSettingsDrifted)
@@ -640,10 +639,9 @@ public final class BuoyEngine {
     private static func desiredSleepDisabled(
         powerSource: String,
         batteryPercent: Int?,
-        minBattery: Int,
-        originalSleepDisabled: Int
+        minBattery: Int
     ) -> Int {
-        if originalSleepDisabled == 1 || powerSource == "AC Power" {
+        if powerSource == "AC Power" {
             return 1
         }
         return (batteryPercent ?? 0) > minBattery ? 1 : 0

@@ -79,7 +79,7 @@ Controls:
 - `Poll interval`
 - `Appearance`
 - `Apply Settings`
-- `Turn Off`
+- `Turn Off` (`Repair Sleep` when Mode is Off but policy attention remains)
 - `Sleep Display`
 - `Refresh`
 

@@ -79,7 +79,7 @@ Key facts:
 - privileged writes are routed through the CLI contract
 - the mode switch is an action, not a draft value waiting for another button
 - `Apply Settings` is enabled only while mode is On and updates the active configuration
-- `Turn Off` can become `Repair Sleep` when ownership is already Off but persistent policy blockers remain
+- `Turn Off` becomes `Repair Sleep` when ownership is already Off but persistent policy repair or verification remains
 - refresh after command execution rehydrates the UI from the CLI state
 
 ## Flow 4: App Status Refresh

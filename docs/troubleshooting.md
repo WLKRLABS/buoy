@@ -97,7 +97,7 @@ buoy status
 ### Fixes
 
 - inspect `Mode issues`, `Sleep policy`, `SleepDisabled`, and the AC and battery system-sleep timers in `buoy status`
-- run `buoy off` or click `Turn Off`; Off clears `SleepDisabled` and repairs blocking system-sleep timers even without a usable restore point
+- run `buoy off` or click `Repair Sleep`; Off clears `SleepDisabled`, repairs blocking system-sleep timers, and retries policy verification even without a usable restore point
 - when a recovery record exists, Buoy keeps it if restoration cannot be verified and reports the exact persistent policy problem
 
 Buoy mode remains On or Off according to Buoy ownership. A persistent policy warning does not replace that mode label.

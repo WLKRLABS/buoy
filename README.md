@@ -111,7 +111,7 @@ Power controls:
 - Appearance
 - Apply Settings, Turn Off, Sleep Display, and Refresh
 
-The Buoy mode switch acts immediately. `Apply Settings` updates sliders and closed-lid settings only while the mode is active. `Turn Off` is also available as an explicit restore or policy-repair action.
+The Buoy mode switch acts immediately. `Apply Settings` updates sliders and closed-lid settings only while the mode is active. `Turn Off` is also available as an explicit restore action and becomes `Repair Sleep` when Mode is Off but policy repair or verification is needed.
 
 Dashboard sections:
 

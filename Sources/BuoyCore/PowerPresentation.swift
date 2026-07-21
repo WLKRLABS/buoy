@@ -44,8 +44,19 @@ public enum BuoyPowerPresenter {
         let assertions = status.system.sleepPreventingAssertions ?? []
         let hasTemporaryWakeRequest = !assertions.isEmpty
         let hasStrongWakeRequest = assertions.contains("PreventSystemSleep") || assertions.contains("KernelPreventSleep")
-        switch status.system.sleepAllowed {
-        case .some(false):
+        let policyNeedsRepair = status.mode.issues.contains(.sleepStillPrevented)
+        let policyIsUnverified = status.mode.issues.contains(.sleepStateUnverified)
+        if policyNeedsRepair {
+            currentState = "Sleep policy needs repair"
+            computerSleep = status.system.sleepDisabled == 1 || status.system.systemSleepMinutes == 0
+                ? "Never"
+                : status.system.systemSleepMinutes.map { "After \($0) min" } ?? "Unverified"
+            sourceDetail = "Sleep policy needs repair"
+        } else if policyIsUnverified {
+            currentState = "Sleep policy unverified"
+            computerSleep = status.system.systemSleepMinutes.map { "After \($0) min" } ?? "Unverified"
+            sourceDetail = "Sleep policy unverified"
+        } else if status.system.sleepAllowed == false {
             currentState = status.system.sleepDisabled == 1
                 ? "Closed-lid override active"
                 : "Idle sleep set to Never\(sourceSuffix)"
@@ -53,7 +64,7 @@ public enum BuoyPowerPresenter {
             sourceDetail = status.mode.enabled
                 ? "Buoy keep-awake policy active"
                 : "Sleep policy needs repair"
-        case .some(true):
+        } else if status.system.sleepAllowed == true {
             if hasStrongWakeRequest {
                 currentState = "Temporary system wake request active"
             } else if hasTemporaryWakeRequest {
@@ -67,7 +78,7 @@ public enum BuoyPowerPresenter {
             sourceDetail = hasTemporaryWakeRequest
                 ? "Sleep policy enabled · temporary activity"
                 : "Sleep policy enabled"
-        case .none:
+        } else {
             currentState = "Sleep policy unverified"
             computerSleep = "Unverified"
             sourceDetail = "Sleep policy unverified"
@@ -115,9 +126,9 @@ public enum BuoyPowerPresenter {
         case .disabled:
             title = "Buoy mode is off"
             if status.mode.issues.contains(.sleepStillPrevented) {
-                detail = "Buoy is not keeping this Mac awake, but a persistent macOS sleep setting still needs repair. Click Turn Off to fix it."
-            } else if status.system.sleepAllowed == nil {
-                detail = "Buoy is not keeping this Mac awake. The persistent macOS sleep policy could not be verified."
+                detail = "Buoy is not keeping this Mac awake, but a persistent macOS sleep setting still needs repair. Click Repair Sleep to fix it."
+            } else if policyIsUnverified {
+                detail = "Buoy mode is off, but the persistent macOS sleep policy is unverified. Click Repair Sleep to retry."
             } else if hasStrongWakeRequest {
                 detail = "Sleep policy is enabled, but a temporary system wake request is active."
             } else if hasTemporaryWakeRequest {
@@ -126,12 +137,16 @@ public enum BuoyPowerPresenter {
                 detail = "Buoy is not keeping this Mac awake. Sleep timers and lid-close sleep are enabled."
             }
             modeValue = "Off"
-            modeDetail = status.mode.issues.contains(.sleepStillPrevented)
-                ? "Buoy off · sleep policy needs repair"
-                : "Buoy is not keeping this Mac awake"
+            if status.mode.issues.contains(.sleepStillPrevented) {
+                modeDetail = "Buoy off · sleep policy needs repair"
+            } else if status.mode.issues.contains(.sleepStateUnverified) {
+                modeDetail = "Buoy off · sleep policy unverified"
+            } else {
+                modeDetail = "Buoy is not keeping this Mac awake"
+            }
         case .sleepPrevented:
             title = "Buoy mode is off"
-            detail = "Buoy is not keeping this Mac awake, but a persistent macOS sleep setting still needs repair. Click Turn Off to fix it."
+            detail = "Buoy is not keeping this Mac awake, but a persistent macOS sleep setting still needs repair. Click Repair Sleep to fix it."
             modeValue = "Off"
             modeDetail = "Buoy off · sleep policy needs repair"
         case .configurationMismatch:

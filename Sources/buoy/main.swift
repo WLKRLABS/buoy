@@ -186,12 +186,15 @@ struct CLI {
         if let sleepDisabled = status.system.sleepDisabled {
             print("SleepDisabled: \(sleepDisabled)")
         }
-        switch status.system.sleepAllowed {
-        case .some(true):
-            print("Sleep policy: enabled")
-        case .some(false):
+        if status.mode.issues.contains(.sleepStillPrevented) {
             print("Sleep policy: needs repair")
-        case .none:
+        } else if status.mode.issues.contains(.sleepStateUnverified) {
+            print("Sleep policy: unverified")
+        } else if status.system.sleepAllowed == true {
+            print("Sleep policy: enabled")
+        } else if status.system.sleepAllowed == false {
+            print("Sleep policy: needs repair")
+        } else {
             print("Sleep policy: unverified")
         }
         if let minutes = status.system.systemSleepMinutes {

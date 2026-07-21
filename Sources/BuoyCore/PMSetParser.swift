@@ -70,6 +70,16 @@ public enum PMSetParser {
         return Int(output[matchRange].replacingOccurrences(of: "%", with: ""))
     }
 
+    public static func hasInternalBattery(_ output: String) -> Bool? {
+        if output.localizedCaseInsensitiveContains("InternalBattery") {
+            return true
+        }
+        if output.localizedCaseInsensitiveContains("no batteries") {
+            return false
+        }
+        return currentPowerSource(output) == "Unknown" ? nil : false
+    }
+
     public static func currentSleepDisabled(_ output: String) -> Int? {
         for line in output.split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
