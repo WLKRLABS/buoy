@@ -8,6 +8,17 @@ This changelog is intentionally lightweight. Each released version gets one shor
 
 ### Changed
 
+### Fixed
+
+### Removed
+
+
+## [1.1.4] - 2026-07-20
+
+### Added
+
+### Changed
+
 - Changed the native power controls so the Buoy mode switch turns the mode on or off immediately, while `Apply Settings` updates only an active mode.
 
 ### Fixed
