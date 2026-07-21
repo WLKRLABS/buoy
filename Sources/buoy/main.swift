@@ -158,19 +158,7 @@ struct CLI {
     }
 
     private static func printHumanStatus(_ status: BuoyStatus) throws {
-        switch status.mode.state {
-        case .enabled:
-            print("Mode: enabled")
-        case .disabled:
-            print("Mode: disabled (live system sleep allowed)")
-        case .sleepPrevented:
-            print("Mode: sleep prevented (Buoy restore state off)")
-        case .configurationMismatch:
-            let ownership = status.mode.enabled ? "enabled" : "off"
-            print("Mode: configuration mismatch (Buoy restore state \(ownership))")
-        case .unverified:
-            print("Mode: unverified")
-        }
+        print("Mode: \(status.mode.enabled ? "on" : "off")")
         if !status.mode.issues.isEmpty {
             print("Mode issues: \(status.mode.issues.map(\.rawValue).joined(separator: ", "))")
         }
@@ -200,17 +188,20 @@ struct CLI {
         }
         switch status.system.sleepAllowed {
         case .some(true):
-            print("System sleep: allowed by live settings")
+            print("Sleep policy: enabled")
         case .some(false):
-            print("System sleep: disabled by live settings")
+            print("Sleep policy: needs repair")
         case .none:
-            print("System sleep: unverified")
+            print("Sleep policy: unverified")
         }
         if let minutes = status.system.systemSleepMinutes {
             print("Active system sleep timer: \(minutes == 0 ? "Never" : "\(minutes) minute(s)")")
         }
+        if let minutes = status.system.displaySleepMinutes {
+            print("Active display sleep timer: \(minutes == 0 ? "Never" : "\(minutes) minute(s)")")
+        }
         if let assertions = status.system.sleepPreventingAssertions, !assertions.isEmpty {
-            print("Sleep-preventing assertions: \(assertions.joined(separator: ", "))")
+            print("Temporary wake requests: \(assertions.joined(separator: ", "))")
         }
         print("Current managed AC settings:")
         for key in BuoyPowerKey.allCases {

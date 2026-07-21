@@ -221,7 +221,7 @@ components:
 
 Buoy is a native macOS operator utility for technical Mac users who need a dependable machine, not a decorative dashboard. The interface should feel calm, exact, and natural to a Mac user while supporting dense inspection tasks.
 
-The product promise is quiet confidence and reversibility. `Overview` is the home screen because daily use starts with "is this Mac okay?" `Power` is the deliberate configuration surface because privileged changes must be staged, reviewed, and applied explicitly. Every section should follow the same hierarchy: status summary first, actions second, exact evidence third.
+The product promise is quiet confidence and reversibility. `Overview` is the home screen because daily use starts with "is this Mac okay?" `Power` is the deliberate configuration surface: the mode switch acts immediately, while detailed configuration changes are reviewed and applied explicitly. Every section should follow the same hierarchy: status summary first, actions second, exact evidence third.
 
 Buoy should use Apple's Human Interface Guidelines as a design constraint. Native controls, sidebar navigation, split-view behavior, menu commands, keyboard shortcuts, SF Symbols, system typography, accessibility behavior, and standard window conventions are part of the design language rather than incidental implementation details. See `docs/apple-hig-reference.md` for the local HIG source index.
 
@@ -267,7 +267,9 @@ Metric cards lead with a short uppercase label, a large monospaced value, and a 
 
 Storage is an inspection surface, not cleanup automation. It may surface large items and cleanup targets, but it must not pressure deletion or hide permission boundaries. Protected folders and custom scan locations stay opt-in, explicit, and reversible.
 
-Power controls stage intent. Sliders and toggles should not apply privileged changes until the user presses `Apply`. `Turn Off` should make restoration obvious and calm. CLI readouts remain available as the lower inspection layer because the CLI is the source of truth.
+The Buoy mode switch is the ownership control and acts immediately: On applies the current configuration, and Off restores a sleep-enabled policy. Sliders and the closed-lid option remain staged until the user presses `Apply Settings`, which is available only while Buoy mode is active. `Turn Off` remains an explicit, calm restore and policy-repair action.
+
+Power summaries must keep three facts separate: Buoy mode ownership, persistent macOS sleep policy, and temporary wake requests. The display-sleep timer is an independent preference and must be reported separately; `displaysleep=0` is valid and must not produce a system-sleep warning. A persistent policy problem may add a warning without replacing the On or Off mode label. A transient assertion is informational and must never redefine the mode, the persistent policy, or a successful Off action. CLI readouts remain available as the lower inspection layer because the CLI is the source of truth.
 
 ## Do's and Don'ts
 

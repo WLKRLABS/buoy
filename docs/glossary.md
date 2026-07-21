@@ -10,18 +10,32 @@ This glossary defines the preferred language for active Buoy docs. Use these ter
 - Use `buoy` for the CLI binary.
 - Use `Buoy.app` for the native macOS app.
 - Use `Buoy mode`, not `server mode`, for the managed keep-awake profile.
-- Use exact UI labels when naming controls, for example `Enable Buoy mode`, `Apply`, `Turn Off`, `Sleep Display`, `Refresh Summary`, and `Deep Scan`.
+- Use exact UI labels when naming controls, for example `Enable Buoy mode`, `Apply Settings`, `Turn Off`, `Sleep Display`, `Refresh Summary`, and `Deep Scan`.
 - Use `closed-lid awake mode` for the optional `SleepDisabled` behavior.
 - Use `restore point` for the saved original AC settings.
 - Use `state file` for `~/.buoy/state.json`.
+- Use `persistent sleep policy` for `SleepDisabled` plus the AC and battery system `sleep` timers.
+- Use `temporary wake request` for a live macOS power assertion; do not call it Buoy mode or a persistent policy setting.
 
 ## Product terms
 
 ### Buoy mode
 
-Buoy's keep-awake-on-AC profile.
+Buoy's immediate On or Off ownership of the keep-awake-on-AC profile.
 
-Technical meaning: the managed AC `pmset` profile applied by `buoy apply` and restored by `buoy off`.
+Technical meaning: the managed AC `pmset` profile applied by `buoy apply` or the app switch and restored by `buoy off` or switching the mode off.
+
+### Persistent sleep policy
+
+The macOS settings that continue to govern sleep after temporary activity ends.
+
+Technical meaning: `SleepDisabled` and the `sleep` values in the AC and battery profiles. Off clears `SleepDisabled` and ensures the system-sleep timers are finite.
+
+### Temporary wake request
+
+An app or macOS request that temporarily delays a kind of sleep.
+
+Technical meaning: a live `pmset` assertion reported for diagnostics. It does not redefine Buoy mode or the persistent sleep policy. `PreventUserIdleSystemSleep` delays idle sleep while active but does not disable lid-close sleep.
 
 ### Closed-lid awake mode
 
@@ -33,7 +47,7 @@ Technical meaning: a helper-driven mode that manages `SleepDisabled` based on po
 
 How long the screen waits before sleeping.
 
-Technical meaning: the `pmset displaysleep` value Buoy applies on AC.
+Technical meaning: the independent `pmset displaysleep` value Buoy applies on AC and restores exactly on Off. `displaysleep=0` means the display timer is `Never`; it does not prevent system sleep.
 
 ### Battery floor
 
@@ -49,9 +63,9 @@ Technical meaning: the `clam_poll_seconds` value passed to the closed-lid helper
 
 ### Restore point
 
-The saved AC settings Buoy returns to when you turn it off.
+The saved nonblocking AC settings Buoy returns to when you turn it off.
 
-Technical meaning: the `originalValues` map stored in `~/.buoy/state.json` the first time Buoy mode is applied.
+Technical meaning: the `originalValues` map stored in `~/.buoy/state.json` when Buoy mode is applied. System `sleep=Never` is normalized before it can become the Off policy, while the saved display-sleep value is preserved exactly.
 
 ### State file
 

@@ -1,20 +1,35 @@
 features:
   - feature_name: Buoy mode
-    user_value: Keeps a Mac awake on AC power while preserving a restore point for the original AC profile.
+    user_value: Gives the user one immediate On or Off control for Buoy ownership. On keeps a Mac awake on AC; Off restores safe saved values, repairs persistent sleep blockers, and verifies sleep is enabled.
     ui_location:
       cli:
         - buoy apply
         - buoy off
         - buoy status
       app:
-        - Power section
+        - Power section Buoy mode switch
     dependencies:
       - pmset
       - administrator authentication
-      - ~/.buoy/state.json
+      - ~/.buoy/state.json for exact saved-value restoration
     related_settings:
       - Enable Buoy mode
       - Display sleep
+
+  - feature_name: Persistent sleep policy repair
+    user_value: Makes Off useful even after a legacy or external setting leaves SleepDisabled enabled or a sleep timer set to Never.
+    ui_location:
+      cli:
+        - buoy off
+        - buoy status
+      app:
+        - Power section Turn Off or Repair Sleep action
+    dependencies:
+      - pmset
+      - administrator authentication
+      - live AC and battery power profiles
+    related_settings:
+      - Enable Buoy mode
 
   - feature_name: Closed-lid awake mode
     user_value: Keeps a notebook awake with the lid closed while charging or above a configured battery floor.
@@ -33,19 +48,20 @@ features:
       - Poll interval
 
   - feature_name: Display sleep control
-    user_value: Lets the display sleep on a timer without restoring full idle sleep on AC.
+    user_value: Lets the display sleep on an independent timer while Buoy mode is On; Apply Settings commits it for an active mode and Off restores the saved value exactly.
     ui_location:
       cli:
         - buoy apply --display-sleep MINUTES
       app:
-        - Power section
+        - Power section Apply Settings action
     dependencies:
       - pmset displaysleep
     related_settings:
       - Display sleep
+      - Enable Buoy mode
 
   - feature_name: Native power control surface
-    user_value: Gives users a native macOS way to apply, restore, refresh, and inspect Buoy state.
+    user_value: Gives users an immediate native mode switch, an Apply Settings action available only while On, explicit policy repair, refresh, and live inspection.
     ui_location:
       app:
         - Power section
@@ -55,6 +71,8 @@ features:
       - osascript for privileged writes
     related_settings:
       - Appearance
+      - Enable Buoy mode
+      - Display sleep
 
   - feature_name: Overview dashboard
     user_value: Summarizes live CPU, memory, disk, battery, and thermal state at a glance.
@@ -133,11 +151,13 @@ features:
       - Storage access scopes
 
   - feature_name: Machine-readable status
-    user_value: Enables scripts and automation to inspect Buoy without scraping human-readable output.
+    user_value: Enables scripts and automation to inspect Buoy ownership, persistent sleep policy, and temporary assertion diagnostics without conflating them or scraping human-readable output.
     ui_location:
       cli:
         - buoy status --json
         - buoy doctor --json
     dependencies:
       - JSON encoding in CLI
+      - pmset custom-profile parsing
+      - pmset assertion parsing for informational diagnostics
     related_settings: []

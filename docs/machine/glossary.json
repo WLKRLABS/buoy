@@ -2,12 +2,44 @@
   "terms": [
     {
       "term": "Buoy mode",
-      "plain_language_definition": "Buoy's keep-awake-on-AC profile.",
-      "technical_definition": "A managed AC pmset profile applied by buoy apply and restored by buoy off.",
+      "plain_language_definition": "Whether Buoy itself is actively keeping the Mac awake.",
+      "technical_definition": "An immediate On or Off ownership state. On applies Buoy's managed AC pmset profile; Off restores safe saved values, repairs persistent sleep blockers, and verifies the resulting policy.",
       "related_terms": [
         "display sleep",
         "restore point",
+        "persistent sleep policy",
+        "temporary sleep request"
+      ]
+    },
+    {
+      "term": "Persistent sleep policy",
+      "plain_language_definition": "The macOS settings that decide whether automatic and closed-lid sleep are enabled.",
+      "technical_definition": "The global SleepDisabled value plus the system-sleep timers in the AC and battery pmset profiles. It is reported separately from Buoy mode, display sleep, and temporary assertions.",
+      "related_terms": [
+        "Buoy mode",
+        "SleepDisabled",
+        "display sleep",
+        "temporary sleep request"
+      ]
+    },
+    {
+      "term": "Temporary sleep request",
+      "plain_language_definition": "An app or macOS service temporarily delaying idle sleep while it works.",
+      "technical_definition": "An informational I/O Kit power assertion reported by pmset. It may defer idle sleep but never changes Buoy ownership, persistent policy health, or whether Off succeeded.",
+      "related_terms": [
+        "Buoy mode",
+        "persistent sleep policy",
         "pmset"
+      ]
+    },
+    {
+      "term": "Apply Settings",
+      "plain_language_definition": "Updates the selected Buoy settings while mode is already On.",
+      "technical_definition": "The app action that reapplies the active Buoy configuration. It is unavailable while mode is Off because the mode switch itself performs On and Off transitions immediately.",
+      "related_terms": [
+        "Buoy mode",
+        "display sleep",
+        "battery floor"
       ]
     },
     {
@@ -23,7 +55,7 @@
     {
       "term": "Display sleep",
       "plain_language_definition": "How long the screen waits before sleeping.",
-      "technical_definition": "The pmset displaysleep value Buoy applies on AC.",
+      "technical_definition": "The independent pmset displaysleep value Buoy applies on AC and restores exactly on Off. A value of 0 keeps the display on but does not prevent system sleep and is not a persistent system-sleep blocker.",
       "related_terms": [
         "Buoy mode",
         "pmset"
@@ -50,7 +82,7 @@
     {
       "term": "Restore point",
       "plain_language_definition": "The saved AC settings Buoy returns to when you turn it off.",
-      "technical_definition": "The originalValues map stored in ~/.buoy/state.json the first time Buoy mode is applied.",
+      "technical_definition": "The originalValues map stored in ~/.buoy/state.json when mode is applied. System-sleep values are made safe so Off cannot restore sleep=Never; displaysleep is preserved and restored exactly because it does not block system sleep.",
       "related_terms": [
         "state file",
         "Buoy mode"

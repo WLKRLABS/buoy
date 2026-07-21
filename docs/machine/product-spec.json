@@ -8,13 +8,47 @@
       "CLI: buoy",
       "App: Buoy.app"
     ],
-    "architectures": "Buoy 1.0.0 ships Apple Silicon release assets only. Universal and Intel release targets are not part of the current pipeline."
+    "architectures": "Buoy 1.1.4 ships Apple Silicon release assets only. Universal and Intel release targets are not part of the current pipeline."
   },
-  "summary": "Buoy applies a reversible AC power profile through a CLI-first engine and exposes a native macOS dashboard for power, system, process, service, network, and storage inspection.",
+  "summary": "Buoy switches a reversible AC keep-awake profile on and off through a CLI-first engine, repairs persistent macOS sleep blockers when turned off, and exposes a native dashboard for power and system inspection.",
+  "power_state_contract": {
+    "mode": {
+      "values": [
+        "On",
+        "Off"
+      ],
+      "meaning": "Immediate Buoy ownership of the managed keep-awake profile.",
+      "app_behavior": "Changing the mode switch immediately runs the corresponding privileged On or Off action."
+    },
+    "settings": {
+      "apply_behavior": "Apply Settings updates configuration only while Mode is On."
+    },
+    "persistent_policy": {
+      "reported_separately_from_mode": true,
+      "inputs": [
+        "SleepDisabled",
+        "AC system-sleep timer",
+        "Battery system-sleep timer"
+      ],
+      "off_behavior": "Restore safe saved system-sleep values when available, set SleepDisabled to 0, repair supported system-sleep timers set to Never, and verify the resulting sleep-enabled policy."
+    },
+    "display_sleep": {
+      "reported_separately_from_persistent_sleep_policy": true,
+      "prevents_system_sleep": false,
+      "off_behavior": "Restore the saved displaysleep value exactly when a restore point is available; do not classify displaysleep=0 as a system-sleep blocker."
+    },
+    "temporary_assertions": {
+      "source": "pmset -g assertions",
+      "classification": "informational",
+      "changes_mode": false,
+      "changes_off_success": false,
+      "presentation": "Describe PreventUserIdleSystemSleep as temporary idle deferral, not as Buoy-owned sleep prevention."
+    }
+  },
   "features": [
     {
       "name": "Buoy mode",
-      "description": "Applies a server-friendly AC profile and restores the previously saved AC settings."
+      "description": "Represents Buoy ownership as an immediate On or Off state. On applies the managed keep-awake profile; Off restores safe saved values, repairs persistent sleep blockers, and verifies a sleep-enabled policy."
     },
     {
       "name": "Closed-lid awake mode",
@@ -26,7 +60,7 @@
     },
     {
       "name": "Native power control surface",
-      "description": "Wraps the CLI in a native macOS app with explicit apply, restore, refresh, and display-sleep actions."
+      "description": "Wraps the CLI in a native macOS app whose mode switch acts immediately; Apply Settings updates configuration only while mode is On."
     },
     {
       "name": "Live dashboard",
@@ -42,7 +76,7 @@
     },
     {
       "name": "Machine-readable status",
-      "description": "Provides JSON output for status and doctor commands."
+      "description": "Provides JSON output that reports Buoy ownership, persistent sleep policy, and temporary macOS assertions as separate facts."
     }
   ],
   "permissions": [
@@ -51,8 +85,9 @@
       "required_for": [
         "buoy apply",
         "buoy off",
-        "app Apply action",
-        "app Turn Off action"
+        "app Buoy mode switch",
+        "app Apply Settings action",
+        "app Turn Off or Repair Sleep action"
       ],
       "reason": "Buoy writes privileged pmset values."
     },
@@ -142,11 +177,22 @@
   ],
   "settings": [
     {
+      "name": "mode_enabled",
+      "surface": "Power",
+      "default": false,
+      "choices": [
+        "On",
+        "Off"
+      ],
+      "behavior": "The app switch applies On or Off immediately; it does not wait for Apply Settings."
+    },
+    {
       "name": "display_sleep_minutes",
       "surface": "Power",
       "default": 10,
       "range": "1-180",
-      "cli_flag": "--display-sleep"
+      "cli_flag": "--display-sleep",
+      "behavior": "Applied by Apply Settings only while Buoy mode is On."
     },
     {
       "name": "clam_enabled",
@@ -208,14 +254,22 @@
       "name": "Enable Buoy mode",
       "entry_points": [
         "buoy apply",
-        "Power -> Apply"
+        "Power -> Buoy mode switch On"
+      ]
+    },
+    {
+      "name": "Update active Buoy settings",
+      "entry_points": [
+        "buoy apply with flags",
+        "Power -> Apply Settings while On"
       ]
     },
     {
       "name": "Turn off Buoy and verify sleep behavior",
       "entry_points": [
         "buoy off",
-        "Power -> Turn Off"
+        "Power -> Buoy mode switch Off",
+        "Power -> Turn Off or Repair Sleep"
       ]
     },
     {
@@ -247,7 +301,7 @@
     "macOS only.",
     "Buoy.app declares minimum macOS version 13.0.",
     "Current build scripts compile native binaries for the build host instead of universal binaries.",
-    "Restore behavior depends on the Buoy state file remaining intact.",
+    "Exact restoration of prior managed values depends on the Buoy state file; without it, Off repairs SleepDisabled and system-sleep Never timers while leaving display sleep independent.",
     "Closed-lid awake mode depends on a helper process that can drift if killed externally.",
     "CPU temperature is intentionally unavailable in the current Apple silicon path.",
     "Protected storage folders remain partial until explicitly granted.",
@@ -269,10 +323,10 @@
       ]
     },
     {
-      "symptom": "buoy off cannot restore expected settings",
+      "symptom": "Mode is Off but the persistent sleep policy needs repair",
       "first_checks": [
-        "Confirm ~/.buoy/state.json exists",
-        "Confirm mode state in buoy status"
+        "Run buoy status and inspect SleepDisabled and active AC and battery sleep timers",
+        "Use Turn Off or Repair Sleep; temporary assertions are informational and do not change Mode Off"
       ]
     },
     {

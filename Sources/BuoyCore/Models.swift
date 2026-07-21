@@ -122,6 +122,7 @@ public struct BuoySystemStatus: Codable, Equatable {
     public var batteryPercent: Int?
     public var sleepDisabled: Int?
     public var systemSleepMinutes: Int?
+    public var displaySleepMinutes: Int?
     public var sleepAllowed: Bool?
     public var sleepPreventingAssertions: [String]?
 
@@ -130,6 +131,7 @@ public struct BuoySystemStatus: Codable, Equatable {
         case batteryPercent = "battery_percent"
         case sleepDisabled = "sleep_disabled"
         case systemSleepMinutes = "system_sleep_minutes"
+        case displaySleepMinutes = "display_sleep_minutes"
         case sleepAllowed = "sleep_allowed"
         case sleepPreventingAssertions = "sleep_preventing_assertions"
     }

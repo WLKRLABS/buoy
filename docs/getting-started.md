@@ -11,7 +11,7 @@ Help you install Buoy, verify it, apply the power profile safely, and understand
 ## Before You Start
 
 - You need a Mac.
-- You need administrator credentials for `apply` and `off`.
+- You need administrator credentials for `apply`, `off`, and the matching app controls.
 - The default install locations are `~/.local/bin` for `buoy` and `~/Applications` for `Buoy.app`.
 - If `~/.local/bin` is not already on your shell `PATH`, you may need `buoy path-add`.
 
@@ -59,6 +59,8 @@ What this means:
 - Buoy disables full idle sleep on AC
 - the display keeps its own sleep timer
 
+In `Buoy.app`, switching `Enable Buoy mode` on performs this action immediately. While mode is on, use `Apply Settings` to update the display and closed-lid configuration.
+
 To preview without changing the machine:
 
 ```bash
@@ -95,7 +97,9 @@ Run:
 buoy off
 ```
 
-This restores the saved AC settings from the Buoy state file, stops the closed-lid helper if it is active, and verifies the result before clearing the recovery record. If a restored setting or active assertion still prevents sleep, Buoy reports `sleep_prevented` instead of claiming sleep was restored.
+This stops the closed-lid helper, sets `SleepDisabled=0`, restores the saved AC profile while repairing system `sleep=Never`, and verifies finite AC and battery system-sleep timers before clearing the recovery record. The display-sleep preference is restored exactly; `displaysleep=0` remains valid because it does not block system sleep.
+
+In `Buoy.app`, switch `Enable Buoy mode` off or click `Turn Off`. Temporary wake requests from apps or macOS are reported separately and do not make Off fail. An idle-only request may delay idle sleep while it is active, but lid-close sleep still works when `SleepDisabled=0`.
 
 ## First Tasks To Try
 

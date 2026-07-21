@@ -28,6 +28,8 @@ buoy doctor
 buoy apply
 ```
 
+Or open `Power` in the app and switch `Enable Buoy mode` on. The switch acts immediately.
+
 3. Confirm the result:
 
 ```bash
@@ -55,8 +57,9 @@ buoy apply --display-sleep 5
 Or in the app:
 
 1. Open `Power`
-2. Move `Display sleep`
-3. Click `Apply`
+2. Switch `Enable Buoy mode` on if it is off
+3. Move `Display sleep`
+4. Click `Apply Settings`
 
 ## Use Closed-Lid Awake Mode With A Battery Floor
 
@@ -73,10 +76,11 @@ buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 15
 Or in the app:
 
 1. Open `Power`
-2. Enable `Allow closed-lid awake mode`
-3. Set `Battery floor`
-4. Set `Poll interval`
-5. Click `Apply`
+2. Switch `Enable Buoy mode` on if it is off
+3. Enable `Allow closed-lid awake mode`
+4. Set `Battery floor`
+5. Set `Poll interval`
+6. Click `Apply Settings`
 
 ### Notes
 
@@ -98,11 +102,13 @@ buoy off
 Or in the app:
 
 1. Open `Power`
-2. Click `Turn Off`
+2. Switch `Enable Buoy mode` off, or click `Turn Off`
 
 ### Important
 
-This depends on the restore point still being present in `~/.buoy/state.json`. Buoy keeps that record if restoration cannot be verified. If no restore point exists while macOS settings or assertions still prevent sleep, Buoy reports `sleep_prevented` without changing settings it cannot prove it owns.
+Off always sets `SleepDisabled=0` and ensures AC and battery system `sleep` timers are finite. It repairs system `sleep=Never` when no usable restore point exists, but restores the independent display-sleep preference exactly, including `displaysleep=0`. When a recovery record exists, Buoy keeps it if the persistent policy cannot be verified.
+
+Temporary wake requests remain informational and do not make Off fail. `PreventUserIdleSystemSleep` may defer idle sleep while active, but lid-close sleep still works when the closed-lid override is off.
 
 ## Check The Current State From A Script
 

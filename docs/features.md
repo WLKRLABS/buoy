@@ -33,8 +33,10 @@ buoy off
 ### Edge Cases And Limits
 
 - Buoy stores the restore point in `~/.buoy/state.json`.
-- If that state is missing, `buoy off` cannot restore the original AC profile.
-- Buoy manages AC settings, not a broad set of battery-only policies.
+- Off clears `SleepDisabled` and ensures AC and battery system `sleep` timers are finite.
+- If the restore point is missing or contains system `sleep=Never`, Off repairs that persistent policy to a safe finite timer.
+- Off restores the independent display-sleep preference exactly, including `displaysleep=0` (`Never`).
+- Buoy's keep-awake profile manages AC settings; Off touches the battery profile only to repair system `sleep=Never`.
 
 ## Feature: Configurable Display Sleep
 
@@ -60,6 +62,7 @@ buoy apply --display-sleep 5
 ### Edge Cases And Limits
 
 - Allowed range in the current source: `1` to `180` minutes.
+- Display sleep is independent of system sleep. Off preserves its saved value exactly, and `displaysleep=0` does not mean system sleep is blocked.
 
 ## Feature: Closed-Lid Awake Mode
 
@@ -106,14 +109,15 @@ You get explicit controls and live feedback without losing the scriptable CLI co
 
 ### How To Use It
 
-- set the toggles and sliders
-- click `Apply`
-- click `Turn Off` to restore
+- switch `Enable Buoy mode` on or off to change ownership immediately
+- while mode is on, adjust the controls and click `Apply Settings`
+- click `Turn Off` when you want an explicit restore or sleep-policy repair
 - click `Refresh` to re-read status from the CLI
 
 ### Edge Cases And Limits
 
-- `Apply` and `Turn Off` trigger the macOS administrator prompt.
+- the mode switch, `Apply Settings`, and `Turn Off` can trigger the macOS administrator prompt
+- temporary macOS wake requests remain visible as information but do not redefine mode, persistent policy, or Off success
 - `Sleep Display` is non-destructive and does not change Buoy mode.
 
 ## Feature: Live Dashboard

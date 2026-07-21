@@ -29,11 +29,12 @@ Type:
 
 Purpose:
 
-- turns Buoy mode on or off in the current configuration panel
+- turns Buoy mode on or off immediately
 
 Effect:
 
-- when applied, Buoy either writes the managed AC profile or restores the saved one
+- switching on applies the current managed AC profile
+- switching off clears `SleepDisabled`, repairs AC and battery system `sleep=Never`, and restores the independent display-sleep preference exactly
 
 Default:
 
@@ -52,6 +53,7 @@ Purpose:
 Effect:
 
 - only matters when Buoy mode is enabled
+- changes are committed with `Apply Settings`
 
 Default:
 
@@ -70,6 +72,7 @@ Type:
 Purpose:
 
 - sets the AC display sleep value Buoy will apply
+- remains independent of the system-sleep policy
 
 CLI equivalent:
 
@@ -82,6 +85,11 @@ Default:
 Allowed range:
 
 - `1` to `180` minutes
+
+Off behavior:
+
+- restores the saved display-sleep value exactly
+- `displaysleep=0` (`Never`) is valid and does not prevent system sleep
 
 ### Battery Floor
 
@@ -149,26 +157,30 @@ Persistence:
 
 ## Power Actions
 
-### Apply
+### Apply Settings
 
 Purpose:
 
-- commits the current power settings in one privileged step
+- updates the current display-sleep and closed-lid settings while Buoy mode is active
 
 Notes:
 
 - uses the macOS administrator prompt
+- disabled while Buoy mode is off
 
 ### Turn Off
 
 Purpose:
 
-- restores the saved AC settings, stops the closed-lid helper, and verifies the live result before clearing recovery state
+- turns Buoy mode off, stops the closed-lid helper, clears `SleepDisabled`, restores the saved AC profile, and verifies finite AC and battery system-sleep timers
 
 Notes:
 
 - uses the macOS administrator prompt
-- reports `sleep_prevented` if a restored setting or live assertion still prevents system sleep
+- repairs system `sleep=Never` on AC or battery even when no usable restore point exists
+- restores the independent display-sleep preference exactly; it does not normalize `displaysleep=0`
+- temporary app or macOS wake requests are informational and do not make Turn Off fail
+- an idle-only wake request does not disable lid-close sleep when `SleepDisabled=0`
 
 ### Sleep Display
 

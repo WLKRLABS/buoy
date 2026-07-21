@@ -1,13 +1,13 @@
 import Foundation
 
 public enum PMSetParser {
-    public static func parseCapabilities(_ output: String, section: String = "Capabilities for AC Power:") -> Set<BuoyPowerKey> {
+    public static func parseCapabilities(_ output: String, section: String? = nil) -> Set<BuoyPowerKey> {
         var capture = false
         var keys = Set<BuoyPowerKey>()
 
         for line in output.split(separator: "\n", omittingEmptySubsequences: false) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed == section {
+            if trimmed.hasPrefix("Capabilities for "), section == nil || trimmed == section {
                 capture = true
                 continue
             }

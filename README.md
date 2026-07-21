@@ -1,6 +1,6 @@
 # <img src="./buoy-icon.png" alt="Buoy icon" width="72" align="center" /> Buoy
 
-> Keep a Mac awake on AC power, let the display sleep on its own timer, and restore the original AC settings cleanly.
+> Keep a Mac awake on AC power, let the display sleep on its own timer, and restore a sleep-enabled policy cleanly.
 
 Buoy is a macOS-only utility for Macs that need to stay available without turning power settings into guesswork. It ships as two surfaces:
 
@@ -60,9 +60,9 @@ Default install locations:
 | `ttyskeepawake` | `1` |
 | `tcpkeepalive` | `1` |
 
-`buoy off` restores the saved AC values from the state file, clears closed-lid helper state, and verifies the live result before deleting its recovery record.
+`buoy off` clears closed-lid helper state and `SleepDisabled`, restores the saved AC profile while ensuring the system `sleep` timer permits sleep, and verifies finite AC and battery system-sleep timers. If no usable restore point exists, Off repairs system `sleep=Never` to a safe finite value. The independent `displaysleep` preference is restored exactly, including `0` (`Never`).
 
-`buoy status` reports Buoy ownership separately from live macOS behavior. If Buoy's restore state is off but `SleepDisabled=1`, an active power profile sets system sleep to `0`, or a live sleep assertion is active, status reports `sleep_prevented` instead of claiming normal sleep was restored. `configuration_mismatch` is reserved for saved Buoy policy that disagrees with live settings. An unreadable live state reports `unverified`, never inferred as sleep allowed.
+`buoy status` reports three separate facts: whether Buoy mode is On or Off, whether the persistent macOS sleep policy permits sleep, and whether an app or macOS currently has a temporary wake request. The display-sleep timer is reported separately because it does not control system sleep. Persistent policy problems never replace the Buoy mode label. Temporary assertions are informational: they do not redefine mode or policy, do not make `buoy off` fail, and an idle-only assertion does not disable lid-close sleep.
 
 Buoy does not replace `pmset`. It adds a reversible layer on top of the macOS power tools that already exist on the machine.
 
@@ -75,7 +75,7 @@ Buoy does not replace `pmset`. It adds a reversible layer on top of the macOS po
 | `buoy apply --clam --clam-min-battery 30 --clam-poll-seconds 15` | Enable closed-lid awake mode above a battery floor. |
 | `buoy status` | Show the current human-readable state. |
 | `buoy status --json` | Emit machine-readable state for scripts. |
-| `buoy off` | Restore the saved AC profile. |
+| `buoy off` | Turn Buoy mode off, restore nonblocking settings, and repair persistent sleep blockers. |
 | `buoy screen-off` | Sleep the display now. |
 | `buoy doctor` | Check local runtime dependencies and state paths. |
 
@@ -87,9 +87,9 @@ Closed-lid awake mode is optional. When enabled with `--clam`, Buoy manages `Sle
 
 - `SleepDisabled=1` on AC power.
 - `SleepDisabled=1` on battery above the configured floor.
-- `SleepDisabled=0` at or below the floor unless it was already enabled before Buoy.
+- `SleepDisabled=0` at or below the floor.
 
-If a previously enabled `SleepDisabled=1` is restored, Buoy reports that system sleep remains disabled even though Buoy ownership is off.
+Turning Buoy mode off always sets `SleepDisabled=0`. Buoy never restores a saved system `sleep=0` as the Off policy, but it does preserve the independent display-sleep preference exactly.
 
 Example:
 
@@ -109,7 +109,9 @@ Power controls:
 - Battery floor
 - Poll interval
 - Appearance
-- Apply, Turn Off, Sleep Display, and Refresh
+- Apply Settings, Turn Off, Sleep Display, and Refresh
+
+The Buoy mode switch acts immediately. `Apply Settings` updates sliders and closed-lid settings only while the mode is active. `Turn Off` is also available as an explicit restore or policy-repair action.
 
 Dashboard sections:
 

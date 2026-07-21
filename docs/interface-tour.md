@@ -62,6 +62,9 @@ Where to find it:
 What it shows:
 
 - the current Buoy mode state
+- persistent macOS sleep-policy health
+- the independent display-sleep timer
+- temporary app or system wake requests, when present
 - the current power source
 - battery state
 - closed-lid state
@@ -75,7 +78,7 @@ Controls:
 - `Battery floor`
 - `Poll interval`
 - `Appearance`
-- `Apply`
+- `Apply Settings`
 - `Turn Off`
 - `Sleep Display`
 - `Refresh`
@@ -83,6 +86,8 @@ Controls:
 Why it matters:
 
 - this is the main control surface for changing power behavior
+- `Enable Buoy mode` acts immediately; `Apply Settings` updates only an active mode
+- mode ownership, persistent policy problems, and temporary wake requests remain separate
 
 ## System
 

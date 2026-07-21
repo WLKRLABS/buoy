@@ -37,7 +37,8 @@
       "likely_causes": [
         "Administrator authentication was denied",
         "pmset returned an error",
-        "The app could not run the CLI through the privileged bridge"
+        "The app could not run the CLI through the privileged bridge",
+        "The immediate mode-switch action failed before status refreshed"
       ],
       "checks": [
         "Run buoy apply --dry-run",
@@ -46,27 +47,48 @@
       ],
       "fixes": [
         "Retry and complete the macOS administrator prompt",
-        "Verify pmset and osascript are available"
+        "Verify pmset and osascript are available",
+        "Refresh status after the command error; do not treat the optimistic switch position as confirmed state"
       ],
       "escalation_path": "Capture the CLI error message and confirm whether the failure occurs in both the app and Terminal."
     },
     {
-      "symptom": "Buoy reports sleep prevented or a power configuration mismatch",
+      "symptom": "Mode is Off but the persistent sleep policy needs repair",
       "likely_causes": [
-        "The Buoy state file is missing while macOS settings or assertions still prevent sleep",
-        "A managed AC value drifted outside Buoy",
-        "The closed-lid helper stopped"
+        "SleepDisabled is still 1",
+        "An AC or battery system-sleep timer is set to Never",
+        "A legacy or external power change left no usable restore point"
       ],
       "checks": [
-        "ls ~/.buoy/state.json",
-        "Run buoy status and inspect Mode issues, System sleep, SleepDisabled, and managed AC values"
+        "Run buoy status and confirm Mode remains Off",
+        "Inspect the persistent policy issue, SleepDisabled, and AC and battery system-sleep timer values",
+        "Treat display sleep as a separate setting; displaysleep=0 does not block system sleep",
+        "Do not treat PreventUserIdleSystemSleep or other temporary assertions as a persistent policy failure"
       ],
       "fixes": [
-        "Retry buoy off when the restore state exists",
-        "Do not assume Buoy owns a live setting when the state file is missing",
-        "Repair an orphaned macOS setting explicitly after confirming the intended value"
+        "Run buoy off",
+        "Use Repair Sleep in the app when Mode is already Off",
+        "Verify that SleepDisabled is 0 and every supported system-sleep timer is finite",
+        "Confirm that a saved display-sleep value was restored exactly rather than normalized as a system-sleep blocker"
       ],
-      "escalation_path": "Treat a missing restore point as manual recovery; Buoy will report sleep_prevented without silently changing ambiguous settings."
+      "escalation_path": "Inspect BuoyEngine repair and verification output if Off cannot establish a safe persistent policy. Keep Mode Off as the ownership truth even when policy repair fails."
+    },
+    {
+      "symptom": "Mode is Off but automatic idle sleep is temporarily deferred",
+      "likely_causes": [
+        "An application holds PreventUserIdleSystemSleep",
+        "macOS powerd or another system service holds a temporary assertion",
+        "A foreground task has requested temporary keep-awake behavior"
+      ],
+      "checks": [
+        "Run pmset -g assertions",
+        "Inspect temporary assertion names separately from Mode and persistent policy"
+      ],
+      "fixes": [
+        "No Buoy repair is required when the persistent policy is healthy",
+        "Close or stop the owning application only if its temporary behavior is unwanted"
+      ],
+      "escalation_path": "Assertions are informational diagnostics and must never redefine Buoy Mode or make a verified Off action fail. Escalate only when a persistent SleepDisabled or timer blocker remains."
     },
     {
       "symptom": "Closed-lid monitor is stopped",

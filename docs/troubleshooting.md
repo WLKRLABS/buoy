@@ -57,7 +57,7 @@ buoy status --json
 - confirm the CLI works from Terminal first
 - relaunch the app after reinstalling
 
-## Apply Or Turn Off Fails
+## Mode Switch, Apply Settings, Or Turn Off Fails
 
 ### Likely Causes
 
@@ -78,11 +78,12 @@ buoy status
 - run the same action in Terminal to inspect the exact error
 - confirm `pmset` is available with `buoy doctor`
 
-## Status Reports Sleep Prevented Or A Configuration Mismatch
+## Status Shows A Persistent Sleep Policy Problem Or Configuration Mismatch
 
 ### Likely Causes
 
-- the Buoy state file is missing while a live macOS setting or assertion still prevents sleep (`sleep_prevented`)
+- `SleepDisabled` is still `1`
+- an AC or battery system `sleep` timer is set to `0` (`Never`)
 - a managed AC value drifted after Buoy was applied
 - the closed-lid helper stopped
 
@@ -95,10 +96,28 @@ buoy status
 
 ### Fixes
 
-- inspect `Mode issues`, `System sleep`, `SleepDisabled`, and the managed AC values in `buoy status`
-- if the state file exists, retry `buoy off`; Buoy keeps the recovery record when restoration cannot be verified
-- if the state file is gone, Buoy reports `sleep_prevented` but does not silently change settings it cannot prove it owns
-- repair an orphaned macOS setting explicitly only after confirming the intended value
+- inspect `Mode issues`, `Sleep policy`, `SleepDisabled`, and the AC and battery system-sleep timers in `buoy status`
+- run `buoy off` or click `Turn Off`; Off clears `SleepDisabled` and repairs blocking system-sleep timers even without a usable restore point
+- when a recovery record exists, Buoy keeps it if restoration cannot be verified and reports the exact persistent policy problem
+
+Buoy mode remains On or Off according to Buoy ownership. A persistent policy warning does not replace that mode label.
+
+The display-sleep timer is reported separately. `displaysleep=0` means the display stays on until another action turns it off; it does not prevent system sleep and is not a policy-repair warning.
+
+## Status Shows A Temporary Wake Request While Mode Is Off
+
+### Meaning
+
+- an app or macOS currently has a power assertion
+- the request is activity, not Buoy ownership or a persistent sleep setting
+
+### What To Do
+
+- inspect `Temporary wake requests` in `buoy status`
+- wait for the task to finish or close the owning app if you need idle sleep immediately
+- do not repeatedly run `buoy off`; temporary requests do not make Off fail
+
+`PreventUserIdleSystemSleep` may delay idle sleep while it is active. It does not disable lid-close sleep when `SleepDisabled=0`.
 
 ## Closed-Lid Monitor Shows Stopped
 

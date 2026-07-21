@@ -77,10 +77,12 @@ Run:
 
 What this covers:
 
-- reconciliation of saved Buoy ownership with live macOS power settings
-- explicit sleep-prevented, mismatch, and unverified states instead of inferred sleep restoration
+- immediate On or Off ownership independent of persistent policy health
+- separation of persistent sleep policy from temporary macOS assertions
+- Off repair of `SleepDisabled` and system `sleep=Never` on AC and battery
+- exact preservation of the independent display-sleep preference, including `displaysleep=0`
 - restore verification before Buoy clears its recovery state
-- truthful CLI/app presentation when system sleep remains disabled
+- assertion-only activity remaining informational, including successful Off and lid-close behavior
 
 ## Manual CLI Checks
 
@@ -91,6 +93,7 @@ Useful commands:
 ./dist/buoy doctor
 ./dist/buoy status --json
 ./dist/buoy apply --dry-run
+./dist/buoy off --dry-run
 ./dist/buoy screen-off --dry-run
 ```
 
@@ -127,6 +130,7 @@ Source:
 ## Testing Gaps To Keep In Mind
 
 - no automated UI test suite is present in the current repo
+- immediate mode-switch behavior and failed-command switch rollback require manual app verification
 - no formal docs lint step is present in CI
 - no automated notarization step is present in the current repo
 
@@ -136,7 +140,8 @@ Source:
   - `./scripts/test-power-state.sh`
   - `./dist/buoy status --json`
   - `./dist/buoy apply --dry-run`
-  - app `Power` refresh
+  - `./dist/buoy off --dry-run`
+  - app `Power` On/Off switch, `Apply Settings`, failure rollback, and refresh
 - storage changes:
   - both storage test scripts
   - manual Storage tab verification

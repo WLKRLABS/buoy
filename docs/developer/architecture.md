@@ -55,13 +55,34 @@ Responsibilities:
 - parse CLI intent into a validated `BuoyConfig`
 - read current AC settings through `pmset`
 - compute the managed AC profile
-- capture the original AC values only once
-- restore the saved AC values on `off`
+- capture safe AC restore values only once per active mode session
+- make `apply` and `off` immediate ownership transitions
+- restore safe saved values and repair persistent macOS sleep blockers on `off`
+- verify `SleepDisabled` and supported AC and battery system-sleep timers after repair
+- preserve and restore the saved display-sleep value exactly as an independent setting
+- keep temporary power assertions as informational diagnostics
 - expose `status` and `doctor`
 
-Key rule:
+Key rules:
 
-- the first successful apply captures the restore point
+- the first successful apply captures a restore point whose system-sleep timer cannot restore `Never`; display sleep remains exact
+- Off clears `SleepDisabled`, repairs persistent zero timers, and verifies the sleep-enabled policy even when no restore point is available
+- assertion activity never changes Buoy ownership or determines whether Off succeeded
+
+### Power State Contract
+
+Power status has four independent dimensions:
+
+1. **Buoy ownership**
+   Immediate `On` or `Off`, derived from Buoy's persisted active-mode state. A managed-setting drift can produce a configuration issue without changing the requested ownership.
+2. **Persistent sleep policy**
+   Derived from `SleepDisabled` plus supported system `sleep` values in the active, AC, and battery profiles. `SleepDisabled=1` or a supported system-sleep timer of `0` is repairable policy drift.
+3. **Display sleep**
+   Derived from `displaysleep` and reported separately. A value of `0` means the display timer is disabled, not that system sleep is blocked; Off restores the saved value exactly.
+4. **Temporary sleep requests**
+   Derived from `pmset -g assertions`. These records explain temporary idle deferral but are informational: they do not redefine Mode, policy health, or Off success.
+
+The UI and JSON status must preserve these boundaries. In particular, `PreventUserIdleSystemSleep` means automatic idle sleep is temporarily deferred; it must not be presented as if Buoy remained On or closed-lid sleep were globally disabled.
 
 ## 2. CLI Surface
 
@@ -98,6 +119,7 @@ Responsibilities:
 Important boundary:
 
 - this is the only background helper Buoy starts automatically
+- its `SleepDisabled` mutation belongs to Buoy ownership and must be cleared by Off; unrelated process assertions do not belong to the helper
 
 ## 4. App Shell And CLI Bridge
 
@@ -110,12 +132,17 @@ Responsibilities:
 - create the main window
 - manage section switching
 - resolve the CLI path
+- dispatch `apply` immediately when the mode switch turns On
+- dispatch `off` immediately when the mode switch turns Off
+- expose `Apply Settings` only while mode is On
+- expose policy repair when mode is Off but persistent blockers remain
 - run normal commands directly
 - run privileged commands through `osascript` with administrator privileges
 
 Important rule:
 
 - the app is not allowed to drift into a second source of truth for power behavior
+- the switch reflects confirmed CLI ownership after refresh; a command failure refreshes instead of leaving an optimistic UI state
 
 ## 5. Dashboard Collection Layer
 
@@ -169,7 +196,7 @@ Important behavior:
 Primary local persistence:
 
 - `~/.buoy/state.json`
-  Purpose: power restore state
+  Purpose: active Buoy ownership, safe power restore values, configuration, and closed-lid helper metadata
 - `~/Library/Application Support/Buoy/storage-scan-cache.json`
   Purpose: storage snapshot cache
 - `UserDefaults`
@@ -200,6 +227,8 @@ The codebase is optimized for:
 
 - directness
 - reversibility
+- an immediate and unsurprising On/Off control
+- explicit separation of ownership, persistent policy, and temporary activity
 - low runtime surface area
 - small distribution and build scripts
 

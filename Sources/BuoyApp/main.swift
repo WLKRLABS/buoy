@@ -343,7 +343,7 @@ final class BuoyViewController: NSViewController {
     private let pollValue = NSTextField(labelWithString: "20 sec")
     private let appearancePopup = NSPopUpButton(frame: .zero, pullsDown: false)
 
-    private lazy var applyButton = makeButton(title: "Apply", action: #selector(applyPressed), tone: .primary)
+    private lazy var applyButton = makeButton(title: "Apply Settings", action: #selector(applyPressed), tone: .primary)
     private lazy var turnOffButton = makeButton(title: "Turn Off", action: #selector(turnOffPressed), tone: .restorative)
     private lazy var screenOffButton = makeButton(title: "Sleep Display", action: #selector(screenOffPressed), tone: .neutral)
     private lazy var refreshButton = makeButton(title: "Refresh", action: #selector(refreshPressed), tone: .neutral)
@@ -359,6 +359,7 @@ final class BuoyViewController: NSViewController {
     private let footerLabel = NSTextField(wrappingLabelWithString: "Buoy remains fully scriptable through the CLI. The readout below matches the installed `buoy` binary.")
 
     private var currentStatus: BuoyStatus?
+    private var actionErrorMessage: String?
     private var isBusy = false {
         didSet { updateBusyState() }
     }
@@ -473,7 +474,7 @@ final class BuoyViewController: NSViewController {
         enabledSwitch.target = self
         enabledSwitch.action = #selector(enabledChanged)
         clamSwitch.target = self
-        clamSwitch.action = #selector(enabledChanged)
+        clamSwitch.action = #selector(configurationChanged)
 
         updateSliderLabels()
         updateBusyState()
@@ -600,7 +601,7 @@ final class BuoyViewController: NSViewController {
     }
 
     private func makeActionPanel() -> NSView {
-        let note = NSTextField(wrappingLabelWithString: "Apply commits the current sliders and toggles in one privileged step. Turn Off restores the saved AC power settings and verifies the live result.")
+        let note = NSTextField(wrappingLabelWithString: "The Buoy mode switch acts immediately. Apply Settings updates an active mode; Turn Off also repairs persistent sleep blockers and verifies the result.")
         note.font = .systemFont(ofSize: 12)
         note.textColor = BuoyChrome.secondaryTextColor
         note.maximumNumberOfLines = 0
@@ -640,11 +641,16 @@ final class BuoyViewController: NSViewController {
     }
 
     private func updateBusyState() {
-        let controls: [NSControl] = [
+        let generalControls: [NSControl] = [
             enabledSwitch, clamSwitch, displaySleepSlider, batterySlider, pollSlider,
-            appearancePopup, applyButton, turnOffButton, screenOffButton, refreshButton
+            appearancePopup, screenOffButton, refreshButton
         ]
-        controls.forEach { $0.isEnabled = !isBusy }
+        generalControls.forEach { $0.isEnabled = !isBusy }
+        applyButton.isEnabled = !isBusy && enabledSwitch.state == .on
+        let needsOffAction = currentStatus?.mode.enabled == true
+            || currentStatus?.mode.issues.contains(.sleepStillPrevented) == true
+        turnOffButton.isEnabled = !isBusy && needsOffAction
+        turnOffButton.isHidden = currentStatus != nil && !needsOffAction
     }
 
     @objc
@@ -655,7 +661,16 @@ final class BuoyViewController: NSViewController {
 
     @objc
     private func enabledChanged() {
-        clamSwitch.isEnabled = enabledSwitch.state == .on
+        updateBehaviorSummary()
+        if enabledSwitch.state == .on {
+            applyCurrentSettings()
+        } else {
+            turnOffMode()
+        }
+    }
+
+    @objc
+    private func configurationChanged() {
         updateBehaviorSummary()
     }
 
@@ -697,14 +712,22 @@ final class BuoyViewController: NSViewController {
 
         switch currentStatus?.mode.state {
         case .enabled:
-            behaviorSymbolView.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: presentation.title)
-            behaviorSymbolView.contentTintColor = BuoyChrome.accentColor
+            let needsAttention = currentStatus?.mode.issues.isEmpty == false
+            behaviorSymbolView.image = NSImage(
+                systemSymbolName: needsAttention ? "exclamationmark.triangle.fill" : "bolt.fill",
+                accessibilityDescription: presentation.title
+            )
+            behaviorSymbolView.contentTintColor = needsAttention ? BuoyChrome.warningColor : BuoyChrome.accentColor
         case .sleepPrevented, .configurationMismatch:
             behaviorSymbolView.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: presentation.title)
             behaviorSymbolView.contentTintColor = BuoyChrome.warningColor
         case .disabled:
-            behaviorSymbolView.image = NSImage(systemSymbolName: "moon.zzz.fill", accessibilityDescription: presentation.title)
-            behaviorSymbolView.contentTintColor = BuoyChrome.secondaryTextColor
+            let needsRepair = currentStatus?.mode.issues.contains(.sleepStillPrevented) == true
+            behaviorSymbolView.image = NSImage(
+                systemSymbolName: needsRepair ? "exclamationmark.triangle.fill" : "moon.zzz.fill",
+                accessibilityDescription: presentation.title
+            )
+            behaviorSymbolView.contentTintColor = needsRepair ? BuoyChrome.warningColor : BuoyChrome.secondaryTextColor
         case .unverified, nil:
             behaviorSymbolView.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: presentation.title)
             behaviorSymbolView.contentTintColor = BuoyChrome.secondaryTextColor
@@ -721,22 +744,28 @@ final class BuoyViewController: NSViewController {
         let modeTone: DashboardMetricTone
         switch currentStatus?.mode.state {
         case .enabled:
-            modeTone = .accent
+            modeTone = currentStatus?.mode.issues.isEmpty == false ? .warning : .accent
         case .sleepPrevented, .configurationMismatch:
             modeTone = .warning
-        case .disabled, .unverified, nil:
+        case .disabled:
+            modeTone = currentStatus?.mode.issues.contains(.sleepStillPrevented) == true ? .warning : .neutral
+        case .unverified, nil:
             modeTone = .neutral
         }
 
         modeCard.set(
             value: presentation.modeValue,
-            detail: currentStatus?.mode.state == .enabled ? "Display sleeps after \(sleepValue) min" : presentation.modeDetail,
+            detail: currentStatus?.mode.state == .enabled && currentStatus?.mode.issues.isEmpty == true
+                ? "Display sleeps after \(sleepValue) min"
+                : presentation.modeDetail,
             tone: modeTone
         )
         sourceCard.set(
             value: powerSource,
             detail: presentation.sourceDetail,
-            tone: currentStatus?.system.sleepAllowed == false ? .warning : (powerSource == "AC Power" ? .accent : .neutral)
+            tone: currentStatus?.system.sleepAllowed == false && currentStatus?.mode.enabled != true
+                ? .warning
+                : (powerSource == "AC Power" ? .accent : .neutral)
         )
         batteryCard.set(
             value: batteryPercent.map { "\($0)%" } ?? "No battery",
@@ -761,17 +790,14 @@ final class BuoyViewController: NSViewController {
 
     @objc
     private func applyPressed() {
-        guard let bridge else { return }
-        isBusy = true
+        guard enabledSwitch.state == .on else { return }
+        applyCurrentSettings()
+    }
 
-        if enabledSwitch.state == .off {
-            bridge.runPrivileged(arguments: ["off"]) { [weak self] result in
-                DispatchQueue.main.async {
-                    self?.handleCommandResult(result)
-                }
-            }
-            return
-        }
+    private func applyCurrentSettings() {
+        guard let bridge else { return }
+        actionErrorMessage = nil
+        isBusy = true
 
         var arguments = [
             "apply",
@@ -792,7 +818,12 @@ final class BuoyViewController: NSViewController {
 
     @objc
     private func turnOffPressed() {
+        turnOffMode()
+    }
+
+    private func turnOffMode() {
         guard let bridge else { return }
+        actionErrorMessage = nil
         isBusy = true
         bridge.runPrivileged(arguments: ["off"]) { [weak self] result in
             DispatchQueue.main.async {
@@ -814,6 +845,7 @@ final class BuoyViewController: NSViewController {
 
     @objc
     private func refreshPressed() {
+        actionErrorMessage = nil
         refreshStatus()
     }
 
@@ -830,7 +862,11 @@ final class BuoyViewController: NSViewController {
                     self.render(status: status)
                 case .failure(let error):
                     self.currentStatus = nil
-                    self.statusLabel.stringValue = "Status unavailable.\n\(error.localizedDescription)"
+                    var message = "Status unavailable.\n\(error.localizedDescription)"
+                    if let actionError = self.actionErrorMessage {
+                        message += "\n\nLast action failed:\n\(actionError)"
+                    }
+                    self.statusLabel.stringValue = message
                     self.updateBehaviorSummary()
                 }
             }
@@ -840,12 +876,19 @@ final class BuoyViewController: NSViewController {
     private func render(status: BuoyStatus) {
         enabledSwitch.state = status.mode.enabled ? .on : .off
         clamSwitch.state = status.clam.enabled ? .on : .off
-        clamSwitch.isEnabled = status.mode.enabled
         displaySleepSlider.doubleValue = Double(status.mode.displaySleepMinutes ?? 10)
         batterySlider.doubleValue = Double(status.clam.minBattery ?? 25)
         pollSlider.doubleValue = Double(status.clam.pollSeconds ?? 20)
         updateSliderLabels()
         updateBehaviorSummary()
+        if status.mode.enabled {
+            turnOffButton.title = "Turn Off"
+        } else if status.mode.issues.contains(.sleepStillPrevented) {
+            turnOffButton.title = "Repair Sleep"
+        } else {
+            turnOffButton.title = "Turn Off"
+        }
+        updateBusyState()
 
         var lines: [String] = []
         lines.append("power       \(status.system.powerSource)")
@@ -860,15 +903,15 @@ final class BuoyViewController: NSViewController {
             lines.append("issues      \(status.mode.issues.map(\.rawValue).joined(separator: ", "))")
         }
         if let assertions = status.system.sleepPreventingAssertions, !assertions.isEmpty {
-            lines.append("assertions  \(assertions.joined(separator: ", "))")
+            lines.append("temporary requests  \(assertions.joined(separator: ", "))")
         }
         switch status.system.sleepAllowed {
         case .some(true):
-            lines.append("system sleep allowed")
+            lines.append("sleep policy enabled")
         case .some(false):
-            lines.append("system sleep disabled")
+            lines.append("sleep policy needs repair")
         case .none:
-            lines.append("system sleep unverified")
+            lines.append("sleep policy unverified")
         }
         if let displaySleep = status.mode.displaySleepMinutes {
             lines.append("display     \(displaySleep) min")
@@ -881,6 +924,11 @@ final class BuoyViewController: NSViewController {
         } else {
             lines.append("closed lid  off")
         }
+        if let actionErrorMessage {
+            lines.append("")
+            lines.append("last action failed")
+            lines.append(actionErrorMessage)
+        }
         statusLabel.stringValue = lines.joined(separator: "\n")
         updateSummaryCards()
     }
@@ -889,12 +937,28 @@ final class BuoyViewController: NSViewController {
         isBusy = false
         switch result {
         case .success(let output):
+            actionErrorMessage = nil
             if !output.isEmpty {
                 statusLabel.stringValue = output
             }
             refreshStatus()
         case .failure(let error):
-            statusLabel.stringValue = "Command failed.\n\(error.localizedDescription)"
+            actionErrorMessage = error.localizedDescription
+            presentCommandError(error)
+            refreshStatus()
+        }
+    }
+
+    private func presentCommandError(_ error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Buoy could not complete the action"
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        if let window = view.window {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
         }
     }
 }

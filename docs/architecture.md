@@ -26,22 +26,24 @@ The CLI owns apply, restore, status, doctor, screen-off, install, and PATH helpe
 
 ## Runtime data flow
 
-### Apply Buoy mode
+### Turn on or update Buoy mode
 
-1. User runs `buoy apply` or clicks `Apply` in the app.
+1. User runs `buoy apply` or switches `Enable Buoy mode` on in the app. `Apply Settings` uses the same path while mode is already active.
 2. CLI parses flags into a `BuoyConfig`.
 3. Core engine reads current AC `pmset` values.
-4. Core engine records the restore point in `~/.buoy/state.json` if one is not already stored.
+4. Core engine records a nonblocking restore point in `~/.buoy/state.json` if one is not already stored.
 5. Core engine applies the managed AC profile.
 6. If closed-lid awake mode is enabled, the helper manages `SleepDisabled`.
 
-### Restore and verify AC behavior
+### Turn off, repair, and verify sleep behavior
 
-1. User runs `buoy off` or clicks `Turn Off`.
-2. Core engine reads `~/.buoy/state.json`.
-3. Core engine restores saved AC values.
-4. Core engine verifies saved AC values and `SleepDisabled` against live `pmset` output.
-5. Recovery state is cleared only after verification; live sleep prevention remains visible as `sleep_prevented` even when Buoy ownership is off.
+1. User runs `buoy off`, switches `Enable Buoy mode` off, or clicks `Turn Off`.
+2. Core engine stops the closed-lid helper and sets `SleepDisabled=0`.
+3. Core engine restores the saved AC profile exactly except that system `sleep=Never` is normalized, and it repairs battery system `sleep=Never` when present.
+4. Core engine verifies the persistent macOS policy against live `pmset` output.
+5. Recovery state is cleared only after verification.
+
+Buoy ownership, persistent sleep policy, and temporary wake requests are separate status dimensions. Display sleep is an independent value that is restored and reported exactly; `displaysleep=0` does not block system sleep. Assertions remain available as diagnostics but never redefine mode, persistent policy, or Off success. In particular, an idle-only assertion does not disable lid-close sleep.
 
 ### App inspection
 
