@@ -24,3 +24,12 @@
   4. Commit release prep as `release: vX.Y.Z`.
   5. Run `./scripts/release.sh tag`, then push branch and tag.
   6. Verify the GitHub release workflow published assets.
+
+## Linear work queue
+
+- Team: **WLKR LABS**.
+- Project: [Buoy](https://linear.app/wlkr-labs/project/buoy-08c696a32d5f).
+- Linear is the task source of truth. Existing GitHub issues and Markdown plans are historical context; this section supersedes older tracker or backlog guidance.
+- Before starting substantive work, read the Linear issue and discussion and check for existing work. Find or create a Linear issue for substantive user-requested work, not every question or minor action.
+- Keep status current, include the issue ID in branches and PRs, and post concise outcomes or blockers. Mark Done only when completion criteria are met.
+- Do not maintain a competing Markdown backlog or import or sync GitHub issues.
